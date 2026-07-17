@@ -51,3 +51,7 @@ package.json.*
 .sync
 history/*.json
 .claude/
+/.skills
+/tasks
+package.json.[0-9]*
+.native-wind-cache
