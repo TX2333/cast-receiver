@@ -5,6 +5,7 @@ export default function AppLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="home" />
       <Stack.Screen name="player" />
+      <Stack.Screen name="sender" />
     </Stack>
   );
 }

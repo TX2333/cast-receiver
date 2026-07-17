@@ -21,7 +21,7 @@ export interface PlayerState {
 interface PlayerContextValue extends PlayerState {
   // 服务器控制
   startServer: () => Promise<void>;
-  stopServer: () => void;
+  stopServer: () => Promise<void>;
   // 播放控制
   playNext: () => void;
   playPrev: () => void;
@@ -50,6 +50,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     port: 7788,
     localIp: '...',
     clientCount: 0,
+    deviceId: '',
+    deviceName: '投屏助手',
   });
 
   const currentVideo = playlist[currentIndex] ?? null;
@@ -119,8 +121,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     await castServer.start();
   }, [handleMessage]);
 
-  const stopServer = useCallback(() => {
-    castServer.stop();
+  const stopServer = useCallback(async () => {
+    await castServer.stop();
   }, []);
 
   // ─── 播放列表控制 ──────────────────────────────────────────────────────────

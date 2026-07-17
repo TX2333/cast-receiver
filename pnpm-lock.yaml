@@ -4,12 +4,6 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-catalogs:
-  default:
-    expo-video:
-      specifier: 55.0.5
-      version: 55.0.5
-
 overrides:
   expo-audio: 55.0.6
   expo-video: 55.0.5
@@ -127,6 +121,9 @@ importers:
       expo-constants:
         specifier: ~55.0.7
         version: 55.0.17(expo@55.0.6)(react-native@0.83.2(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))
+      expo-crypto:
+        specifier: ~55.0.17
+        version: 55.0.17(expo@55.0.6)
       expo-document-picker:
         specifier: ~55.0.15
         version: 55.0.15(expo@55.0.6)
@@ -158,7 +155,7 @@ importers:
         specifier: ~55.0.9
         version: 55.0.20(expo@55.0.6)(react-native-web@0.21.2(react-dom@19.2.0(react@19.2.0))(react@19.2.0))(react-native@0.83.2(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))
       expo-video:
-        specifier: 'catalog:'
+        specifier: 55.0.5
         version: 55.0.5(expo@55.0.6)(react-native@0.83.2(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0)
       lucide-react-native:
         specifier: ^1.11.0
@@ -3293,6 +3290,11 @@ packages:
     peerDependencies:
       expo: '*'
       react-native: '*'
+
+  expo-crypto@55.0.17:
+    resolution: {integrity: sha512-MWe1IsAzPzKGfTqoOKDef5vFvTj2uke6FzcrtbNsy5I9Kvj3JH+DNxEDcVO/wc9gMO5AEUMWK/LC0J5+NkQsEw==}
+    peerDependencies:
+      expo: '*'
 
   expo-document-picker@55.0.15:
     resolution: {integrity: sha512-yqeWkt/y6CbSCVaE8xxa8XX7SijxRiThVEyhM97OKyWYZNVVn4d7HwvPJxwyFl7mDbOTiZai62d+qFaqMtQrlA==}
@@ -8877,6 +8879,10 @@ snapshots:
       react-native: 0.83.2(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0)
     transitivePeerDependencies:
       - supports-color
+
+  expo-crypto@55.0.17(expo@55.0.6):
+    dependencies:
+      expo: 55.0.6(patch_hash=d2507f55976f6c5da8f35d26906f4bd46415e042570afc3bd7c543c86abc5a61)(@babel/core@7.29.7)(@expo/dom-webview@55.0.6)(@expo/metro-runtime@55.0.11)(expo-router@55.0.5)(react-dom@19.2.0(react@19.2.0))(react-native@0.83.2(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0)(typescript@5.9.3)
 
   expo-document-picker@55.0.15(expo@55.0.6):
     dependencies:

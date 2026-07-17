@@ -1,0 +1,1877 @@
+
+<action>
+**MessageAction** (source=EventSource.AGENT)
+CONTENT: 好的，正在为你创建移动端投屏 App，请稍候～
+</action>
+<action>
+**MessageAction** (source=EventSource.AGENT)
+CONTENT: 
+</action>
+<action>
+**MessageAction** (source=EventSource.USER)
+CONTENT: 视频格式转码、外挂字幕文件加载、播放列表功能需要再本期实现
+</action>
+<action>
+**RecallAction**
+QUERY: 视频格式转码、外挂字幕文件加载、播放列表功能需要再本期实现
+</action>
+<action>
+**MessageAction** (source=EventSource.AGENT)
+CONTENT: 好的，正在为投屏 App 添加视频转码、外挂字幕及播放列表功能，请稍候～
+</action>
+<action>
+**MessageAction** (source=EventSource.AGENT)
+CONTENT: 
+</action>
+<action>
+**MessageAction** (source=EventSource.USER)
+CONTENT: 不用选择转码，能够自动转码，确保视频能够正常播放
+</action>
+<action>
+**RecallAction**
+QUERY: 不用选择转码，能够自动转码，确保视频能够正常播放
+</action>
+<action>
+**MessageAction** (source=EventSource.AGENT)
+CONTENT: 好的，正在调整转码逻辑为自动转码，确保视频正常播放～
+</action>
+<action>
+**MessageAction** (source=EventSource.AGENT)
+CONTENT: 
+</action>
+<action>
+**MessageAction** (source=EventSource.USER)
+CONTENT: 打开App，默认「局域网投屏」，用户通过局域网成功建立连接后就能直接播放出来
+</action>
+<action>
+**RecallAction**
+QUERY: 打开App，默认「局域网投屏」，用户通过局域网成功建立连接后就能直接播放出来
+</action>
+<action>
+**MessageAction** (source=EventSource.AGENT)
+CONTENT: 好的，正在将默认投屏方式调整为局域网投屏，并优化连接后的播放逻辑，请稍候～
+</action>
+<action>
+**MessageAction** (source=EventSource.AGENT)
+CONTENT: 
+</action>
+<action>
+**MessageAction** (source=EventSource.USER)
+CONTENT: 不是搜索可投屏设备，是投屏到app
+</action>
+<action>
+**RecallAction**
+QUERY: 不是搜索可投屏设备，是投屏到app
+</action>
+<action>
+**MessageAction** (source=EventSource.AGENT)
+CONTENT: 好的，正在将投屏逻辑调整为接收端投屏到 App，请稍候～
+</action>
+<action>
+SubagentAction(subagent_name='PRDAgent', instruction='重新理解投屏助手App的定位：这个App本身就是投屏的接收端（即大屏端），其他设备（如手机、电脑）通过扫码或局域网把视频内容投屏到这个App上播放。\n\n核心功能：\n1. 这个App作为投屏接收端，显示一个二维码供其他设备扫码连接，同时支持局域网发现（其他设备可搜索到本App并发起投屏）\n2. 连接建立后，发送端推送视频到本App，本App负责播放视频\n3. 支持所有视频编码格式（自动转码确保兼容）\n4. 自动选择正确音轨（过滤编码错误的音轨，优先中文音轨）\n5. 自动挂载简体中文字幕（内嵌或外挂）\n6. 播放列表：支持接收多个视频组成播放列表，按顺序播放\n7. 外挂字幕：支持从本地或发送端加载SRT/ASS字幕文件挂载到当前播放视频\n\nApp打开后默认显示待连接界面，展示二维码和局域网连接信息，连接成功后直接开始播放推送过来的视频。', input={'lang_env': 'Chinese', 'lang_user': 'Chinese', 'prd': '# 需求文档\n\n## 1. 应用概述\n\n**应用名称**：投屏助手\n\n**应用描述**：一款移动端投屏软件,支持扫码投屏和局域网投屏两种连接方式,能够播放所有视频编码格式,自动选择正确音轨并挂载简体中文字幕。\n\n## 2. 用户与使用场景\n\n**目标用户**：需要将手机视频内容投屏到电视、投影仪等大屏设备的用户。\n\n**核心使用场景**：\n- 用户在家中通过扫码或局域网连接,将手机中的视频投屏到电视观看\n- 用户在会议室将手机视频投屏到投影仪进行展示\n\n## 3. 页面结构与功能说明\n\n### 3.1 页面结构\n\n```\n投屏助手App\n├── 首页(局域网设备列表)\n│   ├── 扫码投屏入口\n│   ├── 设备列表区域\n│   ├── 视频文件列表\n│   └── 播放列表入口\n├── 扫码投屏页面\n├── 播放列表页面\n├── 视频设置页面\n│   └── 外挂字幕加载\n└── 投屏播放控制页面\n```\n\n### 3.2 功能说明\n\n#### 3.2.1 首页(局域网设备列表)\n\n**功能描述**：\n- 打开App后默认进入局域网投屏模式,自动搜索同一局域网内的可投屏设备\n- 展示设备名称和连接状态\n- 展示扫码投屏入口按钮\n- 展示手机本地视频文件列表,用户可选择视频进行投屏\n- 展示播放列表入口,用户可进入播放列表页面\n\n**操作流程**：\n- 用户打开App,页面自动搜索局域网设备并展示设备列表\n- 用户点击目标设备进行连接\n- 连接成功后,用户点击视频文件,视频直接开始在大屏设备上播放\n- 用户点击「扫码投屏」进入扫码页面\n- 用户点击「播放列表」进入播放列表页面\n\n#### 3.2.2 扫码投屏页面\n\n**功能描述**：\n- 调用手机摄像头扫描大屏设备显示的二维码\n- 扫码成功后自动建立连接\n\n**操作流程**：\n- 用户对准大屏设备二维码进行扫描\n- 扫描成功后跳转至投屏播放控制页面\n\n#### 3.2.3 播放列表页面\n\n**功能描述**：\n- 展示用户创建的播放列表\n- 用户可创建新播放列表,添加视频到播放列表\n- 用户可选择播放列表进行连续投屏播放\n- 用户可编辑播放列表,调整视频顺序或删除视频\n\n**操作流程**：\n- 用户点击「创建播放列表」,输入列表名称\n- 用户从视频文件列表中选择视频添加到播放列表\n- 用户点击播放列表,选择投屏方式后按顺序播放列表中的视频\n- 用户可长按视频调整顺序,或滑动删除视频\n\n#### 3.2.4 视频设置页面\n\n**功能描述**：\n- 提供外挂字幕文件加载功能,用户可选择本地字幕文件挂载到视频\n\n**操作流程**：\n- 用户在视频文件列表长按视频,选择「加载字幕」\n- 用户从本地文件中选择字幕文件(SRT、ASS等格式)\n- 字幕文件与视频关联,投屏时自动显示\n\n#### 3.2.5 投屏播放控制页面\n\n**功能描述**：\n- 显示当前投屏状态和连接的设备信息\n- 提供播放、暂停、进度调节、音量调节等基础控制功能\n- 显示当前视频的音轨和字幕状态\n- 播放列表模式下,显示当前播放视频和列表进度\n- 提供断开投屏功能\n\n**操作流程**：\n- 用户通过控制按钮操作视频播放\n- 用户可查看当前使用的音轨和字幕信息\n- 播放列表模式下,当前视频播放完毕后自动播放下一个视频\n- 用户点击断开按钮结束投屏\n\n## 4. 业务规则与逻辑\n\n### 4.1 视频编码支持\n\n- 应用支持所有常见视频编码格式(H.264、H.265、VP9、AV1、MPEG-4等)\n- 视频文件无论何种编码格式均可正常投屏播放\n\n### 4.2 音轨自动选择规则\n\n- 应用自动检测视频文件中的所有音轨\n- 自动识别并过滤掉编码错误或无法播放的音轨\n- 优先选择正常可播放的音轨进行输出\n- 若存在多条正常音轨,优先选择中文音轨,其次为原始音轨\n\n### 4.3 字幕自动挂载规则\n\n- 应用自动检测视频文件中的内嵌字幕轨道\n- 自动识别简体中文字幕轨道并挂载\n- 若视频文件无内嵌简体中文字幕,则不显示字幕\n- 用户加载外挂字幕文件后,外挂字幕优先于内嵌字幕显示\n- 字幕挂载后自动同步显示在投屏画面中\n\n### 4.4 视频格式自动转码规则\n\n- 应用在播放视频前自动检测视频编码格式兼容性\n- 当检测到视频编码格式不兼容或无法正常播放时,自动进行格式转码\n- 转码过程在后台自动完成,用户无需任何操作\n- 转码完成后视频自动开始播放\n- 转码后的视频文件保存在手机本地存储,原视频文件保持不变\n\n### 4.5 播放列表规则\n\n- 用户可创建多个播放列表,每个列表可包含多个视频\n- 播放列表按用户添加顺序或手动调整顺序播放\n- 播放列表模式下,当前视频播放完毕后自动播放下一个视频\n- 播放列表播放完毕后停止投屏,或循环播放(根据用户设置)\n\n### 4.6 连接与投屏逻辑\n\n- 扫码投屏和局域网投屏均需手机与大屏设备处于同一网络环境\n- 打开App后自动进入局域网投屏模式,自动搜索局域网内可投屏设备\n- 用户选择设备建立连接后,连接状态保持,用户点击视频文件即可直接在大屏设备上播放\n- 投屏过程中若网络中断,自动提示用户并尝试重新连接\n- 用户主动断开投屏后,大屏设备停止播放并返回待连接状态\n\n## 5. 异常与边界情况\n\n| 场景 | 处理方式 |\n|------|----------|\n| 扫码失败或二维码无效 | 提示「扫码失败,请重试」 |\n| 局域网内无可用设备 | 提示「未搜索到可投屏设备,请确认设备已开启并连接同一网络」 |\n| 视频文件所有音轨均编码错误 | 提示「视频音轨异常,无法播放」 |\n| 视频文件无简体中文字幕 | 不显示字幕,正常播放视频 |\n| 投屏过程中网络中断 | 提示「网络连接中断,正在尝试重新连接」,尝试3次后提示「连接失败,请检查网络」 |\n| 用户选择的视频文件不存在或已损坏 | 提示「视频文件无法读取,请重新选择」 |\n| 视频自动转码失败 | 提示「视频格式不兼容,无法播放」 |\n| 外挂字幕文件格式不支持 | 提示「字幕文件格式不支持,请选择SRT或ASS格式」 |\n| 播放列表为空 | 提示「播放列表为空,请添加视频」 |\n| 播放列表播放过程中某个视频文件不存在 | 跳过该视频,自动播放下一个视频,并提示「视频文件不存在,已跳过」 |\n\n## 6. 验收标准\n\n1. 用户打开App进入首页,页面自动搜索局域网内可投屏设备并展示设备列表\n2. 用户点击目标设备,成功建立连接\n3. 用户点击首页视频文件列表中的一个视频\n4. 视频直接在大屏设备上开始播放,自动选择正确音轨,自动挂载简体中文字幕\n5. 用户在投屏播放控制页面点击暂停按钮,视频暂停播放\n6. 用户点击断开投屏,大屏设备停止播放并返回待连接状态\n\n## 7. 本期不实现功能\n\n- 投屏历史记录\n- 多设备同时投屏\n- 手动切换音轨或字幕\n- 云端视频投屏\n- 屏幕镜像功能\n- 投屏设备收藏\n- 投屏质量调节(清晰度、码率等)', 'app_type': 'Mobile App', 'is_generated': False, 'metadata': {'a2a': [{'kind': 'text', 'metadata': None, 'text': '不是搜索可投屏设备，是投屏到app'}, {'data': {'type': 'extension', 'extension': {'name': '自动', 'desc': '自动'}}, 'kind': 'data', 'metadata': None}, {'data': {'services': [{'name': 'daemon', 'address': 'http://10.45.158.84/sandbox/internal/app-d2y8vp5n1s75/daemon'}, {'name': 'vitesandbox', 'address': 'https://app-d2y8vp5n1s75-vitesandbox-bj-3.miaoda.cn/'}], 'type': 'sandbox'}, 'kind': 'data', 'metadata': None}], 'defaultAgent': 'AdaProCodeactAgent', 'agentConfig': {}, 'runtime': 'miaoda', 'lang': 'zh-CN', 'queryMode': 'deep_mode', 'clientSendTs': 1784305394038, 'appStatus': 'not_generate', 'hasAgent': False, 'cur_version_last_event_id': -1, 'supportSupabase': 'true', 'subscription_plan': 'pro', 'senderUserId': 'user-b462260nihhc', 'is_user_input': True, 'firstMessage': '请生成一个App，内容如下：帮我制作一个投屏软件，支持扫码投屏和局域网投屏，支持所有视频编码，能够自动选择正确的音轨，避开错误编码的音轨，能够自动挂载简体中文字幕'}, 'generate_app_requested': False}, context_strategy='clean', context_agent_names=[], thought='我需要先理解用户的需求变化，然后更新PRD。用户说"不是搜索可投屏设备，是投屏到app"——这意味着这个App本身就是**接收端**（大屏端/电视端），其他设备通过扫码或局域网把视频投屏**到这个App**来播放。让我更新PRD。\nDelegating to PRDAgent', action=<ActionType.SUBAGENT: 'subagent'>)
+</action>
+<observation>
+SubagentObservation(content="Subagent 'PRDAgent' (conv-d2y8vp5n1s74/subagent-PRDAgent-ID2021) successfully completed. Summary: , Output: {'actions': [{'type': 'button', 'label': '立即创作', 'value': '立即创作', 'event': {'name': 'generateApp'}}], 'appInfo': {'requirementType': 'Mobile App'}, 'appType': 'Mobile App', 'prd': '# 需求文档\\n\\n## 1. 应用概述\\n\\n**应用名称**：投屏助手\\n\\n**应用描述**：一款移动端投屏接收软件，作为大屏端接收其他设备推送的视频内容并播放。支持扫码投屏和局域网投屏两种连接方式，能够播放所有视频编码格式，自动选择正确音轨并挂载简体中文字幕。\\n\\n## 2. 用户与使用场景\\n\\n**目标用户**：需要将手机、平板或电脑作为大屏播放设备，接收其他设备投屏内容的用户。\\n\\n**核心使用场景**：\\n- 用户将手机/平板连接到电视或投影仪，打开本App作为投屏接收端，其他设备扫码或通过局域网连接后推送视频进行播放\\n- 用户在会议室将设备作为投屏接收端，接收其他参会者推送的视频内容\\n\\n## 3. 页面结构与功能说明\\n\\n### 3.1 页面结构\\n\\n```\\n投屏助手App（接收端）\\n├── 待连接页面\\n│   ├── 二维码展示区域\\n│   ├── 局域网连接信息展示\\n│   └── 连接状态提示\\n├── 视频播放页面\\n│   ├── 视频播放区域\\n│   ├── 播放控制栏\\n│   ├── 播放列表显示\\n│   └── 字幕显示区域\\n└── 设置页面\\n    └── 外挂字幕加载\\n```\\n\\n### 3.2 功能说明\\n\\n#### 3.2.1 待连接页面\\n\\n**功能描述**：\\n- App打开后默认进入待连接状态\\n- 页面中央展示二维码，供其他设备扫码连接\\n- 页面下方展示局域网连接信息（设备名称、IP地址等），供其他设备通过局域网搜索并连接\\n- 显示当前连接状态（待连接/已连接）\\n- 自动监听局域网内的投屏连接请求\\n\\n**操作流程**：\\n- 用户打开App，页面自动生成二维码并展示局域网连接信息\\n- 其他设备扫描二维码或通过局域网搜索到本设备后发起连接\\n- 连接成功后，页面自动跳转至视频播放页面\\n\\n#### 3.2.2 视频播放页面\\n\\n**功能描述**：\\n- 接收发送端推送的视频内容并播放\\n- 显示视频播放画面\\n- 提供播放、暂停、进度调节、音量调节等基础控制功能\\n- 显示当前播放的音轨和字幕状态\\n- 支持播放列表模式，显示当前播放视频和列表中的其他视频\\n- 提供断开连接功能\\n\\n**操作流程**：\\n- 发送端推送视频后，视频自动开始播放\\n- 用户通过控制栏操作视频播放（暂停、调节进度、调节音量）\\n- 播放列表模式下，当前视频播放完毕后自动播放下一个视频\\n- 用户点击断开连接按钮，停止播放并返回待连接页面\\n\\n#### 3.2.3 设置页面\\n\\n**功能描述**：\\n- 提供外挂字幕文件加载功能\\n- 用户可从本地选择字幕文件（SRT、ASS等格式）挂载到当前播放视频\\n- 发送端也可推送字幕文件到本App进行挂载\\n\\n**操作流程**：\\n- 用户在视频播放页面点击设置按钮进入设置页面\\n- 用户点击「加载字幕」，从本地文件中选择字幕文件\\n- 字幕文件加载成功后，自动显示在视频播放画面中\\n- 发送端推送字幕文件时，自动加载并显示\\n\\n## 4. 业务规则与逻辑\\n\\n### 4.1 连接与投屏逻辑\\n\\n- 扫码投屏和局域网投屏均需发送端与本App处于同一网络环境\\n- App打开后自动生成二维码并开启局域网广播，等待其他设备连接\\n- 发送端扫描二维码或通过局域网搜索到本设备后，发起连接请求\\n- 连接建立后，发送端推送视频到本App，本App自动开始播放\\n- 投屏过程中若网络中断，自动提示用户并尝试重新连接\\n- 用户主动断开连接后，停止播放并返回待连接页面\\n\\n### 4.2 视频编码支持与自动转码规则\\n\\n- 应用支持所有常见视频编码格式（H.264、H.265、VP9、AV1、MPEG-4等）\\n- 视频文件无论何种编码格式均可正常播放\\n- 当检测到视频编码格式不兼容或无法正常播放时，自动进行格式转码\\n- 转码过程在后台自动完成，用户无需任何操作\\n- 转码完成后视频自动开始播放\\n\\n### 4.3 音轨自动选择规则\\n\\n- 应用自动检测视频文件中的所有音轨\\n- 自动识别并过滤掉编码错误或无法播放的音轨\\n- 优先选择正常可播放的音轨进行输出\\n- 若存在多条正常音轨，优先选择中文音轨，其次为原始音轨\\n\\n### 4.4 字幕自动挂载规则\\n\\n- 应用自动检测视频文件中的内嵌字幕轨道\\n- 自动识别简体中文字幕轨道并挂载\\n- 若视频文件无内嵌简体中文字幕，则不显示字幕\\n- 用户加载外挂字幕文件后，外挂字幕优先于内嵌字幕显示\\n- 发送端推送字幕文件时，自动加载并优先显示\\n- 字幕挂载后自动同步显示在视频播放画面中\\n\\n### 4.5 播放列表规则\\n\\n- 发送端可推送多个视频组成播放列表\\n- 播放列表按发送端推送顺序播放\\n- 播放列表模式下，当前视频播放完毕后自动播放下一个视频\\n- 播放列表播放完毕后停止播放，等待发送端继续推送或断开连接\\n\\n## 5. 异常与边界情况\\n\\n| 场景 | 处理方式 |\\n|------|----------|\\n| 发送端扫码失败或二维码无效 | 提示「扫码失败，请重试」 |\\n| 局域网内无发送端连接 | 保持待连接状态，持续展示二维码和局域网信息 |\\n| 视频文件所有音轨均编码错误 | 提示「视频音轨异常，无法播放」 |\\n| 视频文件无简体中文字幕 | 不显示字幕，正常播放视频 |\\n| 投屏过程中网络中断 | 提示「网络连接中断，正在尝试重新连接」，尝试3次后提示「连接失败，请检查网络」 |\\n| 发送端推送的视频文件损坏或无法读取 | 提示「视频文件无法读取，请重新推送」 |\\n| 视频自动转码失败 | 提示「视频格式不兼容，无法播放」 |\\n| 外挂字幕文件格式不支持 | 提示「字幕文件格式不支持，请选择SRT或ASS格式」 |\\n| 播放列表播放过程中某个视频文件损坏 | 跳过该视频，自动播放下一个视频，并提示「视频文件异常，已跳过」 |\\n| 发送端推送空播放列表 | 提示「播放列表为空，请推送视频」 |\\n\\n## 6. 验收标准\\n\\n1. 用户打开App进入待连接页面，页面展示二维码和局域网连接信息\\n2. 发送端扫描二维码或通过局域网搜索到本设备，成功建立连接\\n3. 发送端推送一个视频文件到本App\\n4. 视频自动在本App上开始播放，自动选择正确音轨，自动挂载简体中文字幕\\n5. 用户点击暂停按钮，视频暂停播放\\n6. 用户点击断开连接，视频停止播放并返回待连接页面\\n\\n## 7. 本期不实现功能\\n\\n- 投屏历史记录\\n- 多设备同时投屏\\n- 手动切换音轨或字幕\\n- 云端视频投屏\\n- 屏幕镜像功能\\n- 投屏质量调节（清晰度、码率等）\\n- 发送端设备管理\\n- 播放列表编辑功能（调整顺序、删除视频等）', 'intent_query': '已生成的需求文档如下：\\n# 需求文档\\n\\n## 1. 应用概述\\n\\n**应用名称**：投屏助手\\n\\n**应用描述**：一款移动端投屏软件,支持扫码投屏和局域网投屏两种连接方式,能够播放所有视频编码格式,自动选择正确音轨并挂载简体中文字幕。\\n\\n## 2. 用户与使用场景\\n\\n**目标用户**：需要将手机视频内容投屏到电视、投影仪等大屏设备的用户。\\n\\n**核心使用场景**：\\n- 用户在家中通过扫码或局域网连接,将手机中的视频投屏到电视观看\\n- 用户在会议室将手机视频投屏到投影仪进行展示\\n\\n## 3. 页面结构与功能说明\\n\\n### 3.1 页面结构\\n\\n```\\n投屏助手App\\n├── 首页(局域网设备列表)\\n│   ├── 扫码投屏入口\\n│   ├── 设备列表区域\\n│   ├── 视频文件列表\\n│   └── 播放列表入口\\n├── 扫码投屏页面\\n├── 播放列表页面\\n├── 视频设置页面\\n│   └── 外挂字幕加载\\n└── 投屏播放控制页面\\n```\\n\\n### 3.2 功能说明\\n\\n#### 3.2.1 首页(局域网设备列表)\\n\\n**功能描述**：\\n- 打开App后默认进入局域网投屏模式,自动搜索同一局域网内的可投屏设备\\n- 展示设备名称和连接状态\\n- 展示扫码投屏入口按钮\\n- 展示手机本地视频文件列表,用户可选择视频进行投屏\\n- 展示播放列表入口,用户可进入播放列表页面\\n\\n**操作流程**：\\n- 用户打开App,页面自动搜索局域网设备并展示设备列表\\n- 用户点击目标设备进行连接\\n- 连接成功后,用户点击视频文件,视频直接开始在大屏设备上播放\\n- 用户点击「扫码投屏」进入扫码页面\\n- 用户点击「播放列表」进入播放列表页面\\n\\n#### 3.2.2 扫码投屏页面\\n\\n**功能描述**：\\n- 调用手机摄像头扫描大屏设备显示的二维码\\n- 扫码成功后自动建立连接\\n\\n**操作流程**：\\n- 用户对准大屏设备二维码进行扫描\\n- 扫描成功后跳转至投屏播放控制页面\\n\\n#### 3.2.3 播放列表页面\\n\\n**功能描述**：\\n- 展示用户创建的播放列表\\n- 用户可创建新播放列表,添加视频到播放列表\\n- 用户可选择播放列表进行连续投屏播放\\n- 用户可编辑播放列表,调整视频顺序或删除视频\\n\\n**操作流程**：\\n- 用户点击「创建播放列表」,输入列表名称\\n- 用户从视频文件列表中选择视频添加到播放列表\\n- 用户点击播放列表,选择投屏方式后按顺序播放列表中的视频\\n- 用户可长按视频调整顺序,或滑动删除视频\\n\\n#### 3.2.4 视频设置页面\\n\\n**功能描述**：\\n- 提供外挂字幕文件加载功能,用户可选择本地字幕文件挂载到视频\\n\\n**操作流程**：\\n- 用户在视频文件列表长按视频,选择「加载字幕」\\n- 用户从本地文件中选择字幕文件(SRT、ASS等格式)\\n- 字幕文件与视频关联,投屏时自动显示\\n\\n#### 3.2.5 投屏播放控制页面\\n\\n**功能描述**：\\n- 显示当前投屏状态和连接的设备信息\\n- 提供播放、暂停、进度调节、音量调节等基础控制功能\\n- 显示当前视频的音轨和字幕状态\\n- 播放列表模式下,显示当前播放视频和列表进度\\n- 提供断开投屏功能\\n\\n**操作流程**：\\n- 用户通过控制按钮操作视频播放\\n- 用户可查看当前使用的音轨和字幕信息\\n- 播放列表模式下,当前视频播放完毕后自动播放下一个视频\\n- 用户点击断开按钮结束投屏\\n\\n## 4. 业务规则与逻辑\\n\\n### 4.1 视频编码支持\\n\\n- 应用支持所有常见视频编码格式(H.264、H.265、VP9、AV1、MPEG-4等)\\n- 视频文件无论何种编码格式均可正常投屏播放\\n\\n### 4.2 音轨自动选择规则\\n\\n- 应用自动检测视频文件中的所有音轨\\n- 自动识别并过滤掉编码错误或无法播放的音轨\\n- 优先选择正常可播放的音轨进行输出\\n- 若存在多条正常音轨,优先选择中文音轨,其次为原始音轨\\n\\n### 4.3 字幕自动挂载规则\\n\\n- 应用自动检测视频文件中的内嵌字幕轨道\\n- 自动识别简体中文字幕轨道并挂载\\n- 若视频文件无内嵌简体中文字幕,则不显示字幕\\n- 用户加载外挂字幕文件后,外挂字幕优先于内嵌字幕显示\\n- 字幕挂载后自动同步显示在投屏画面中\\n\\n### 4.4 视频格式自动转码规则\\n\\n- 应用在播放视频前自动检测视频编码格式兼容性\\n- 当检测到视频编码格式不兼容或无法正常播放时,自动进行格式转码\\n- 转码过程在后台自动完成,用户无需任何操作\\n- 转码完成后视频自动开始播放\\n- 转码后的视频文件保存在手机本地存储,原视频文件保持不变\\n\\n### 4.5 播放列表规则\\n\\n- 用户可创建多个播放列表,每个列表可包含多个视频\\n- 播放列表按用户添加顺序或手动调整顺序播放\\n- 播放列表模式下,当前视频播放完毕后自动播放下一个视频\\n- 播放列表播放完毕后停止投屏,或循环播放(根据用户设置)\\n\\n### 4.6 连接与投屏逻辑\\n\\n- 扫码投屏和局域网投屏均需手机与大屏设备处于同一网络环境\\n- 打开App后自动进入局域网投屏模式,自动搜索局域网内可投屏设备\\n- 用户选择设备建立连接后,连接状态保持,用户点击视频文件即可直接在大屏设备上播放\\n- 投屏过程中若网络中断,自动提示用户并尝试重新连接\\n- 用户主动断开投屏后,大屏设备停止播放并返回待连接状态\\n\\n## 5. 异常与边界情况\\n\\n| 场景 | 处理方式 |\\n|------|----------|\\n| 扫码失败或二维码无效 | 提示「扫码失败,请重试」 |\\n| 局域网内无可用设备 | 提示「未搜索到可投屏设备,请确认设备已开启并连接同一网络」 |\\n| 视频文件所有音轨均编码错误 | 提示「视频音轨异常,无法播放」 |\\n| 视频文件无简体中文字幕 | 不显示字幕,正常播放视频 |\\n| 投屏过程中网络中断 | 提示「网络连接中断,正在尝试重新连接」,尝试3次后提示「连接失败,请检查网络」 |\\n| 用户选择的视频文件不存在或已损坏 | 提示「视频文件无法读取,请重新选择」 |\\n| 视频自动转码失败 | 提示「视频格式不兼容,无法播放」 |\\n| 外挂字幕文件格式不支持 | 提示「字幕文件格式不支持,请选择SRT或ASS格式」 |\\n| 播放列表为空 | 提示「播放列表为空,请添加视频」 |\\n| 播放列表播放过程中某个视频文件不存在 | 跳过该视频,自动播放下一个视频,并提示「视频文件不存在,已跳过」 |\\n\\n## 6. 验收标准\\n\\n1. 用户打开App进入首页,页面自动搜索局域网内可投屏设备并展示设备列表\\n2. 用户点击目标设备,成功建立连接\\n3. 用户点击首页视频文件列表中的一个视频\\n4. 视频直接在大屏设备上开始播放,自动选择正确音轨,自动挂载简体中文字幕\\n5. 用户在投屏播放控制页面点击暂停按钮,视频暂停播放\\n6. 用户点击断开投屏,大屏设备停止播放并返回待连接状态\\n\\n## 7. 本期不实现功能\\n\\n- 投屏历史记录\\n- 多设备同时投屏\\n- 手动切换音轨或字幕\\n- 云端视频投屏\\n- 屏幕镜像功能\\n- 投屏设备收藏\\n- 投屏质量调节(清晰度、码率等)\\n\\n用户提出的修改要求如下：\\n重新理解投屏助手App的定位：这个App本身就是投屏的接收端（即大屏端），其他设备（如手机、电脑）通过扫码或局域网把视频内容投屏到这个App上播放。\\n\\n核心功能：\\n1. 这个App作为投屏接收端，显示一个二维码供其他设备扫码连接，同时支持局域网发现（其他设备可搜索到本App并发起投屏）\\n2. 连接建立后，发送端推送视频到本App，本App负责播放视频\\n3. 支持所有视频编码格式（自动转码确保兼容）\\n4. 自动选择正确音轨（过滤编码错误的音轨，优先中文音轨）\\n5. 自动挂载简体中文字幕（内嵌或外挂）\\n6. 播放列表：支持接收多个视频组成播放列表，按顺序播放\\n7. 外挂字幕：支持从本地或发送端加载SRT/ASS字幕文件挂载到当前播放视频\\n\\nApp打开后默认显示待连接界面，展示二维码和局域网连接信息，连接成功后直接开始播放推送过来的视频。\\n\\n请基于上述要求直接生成更新后的需求文档，无需澄清。', 'type': 'prdAgentAction', 'app_name': '投屏助手', 'app_desc': '一款移动端投屏接收软件，作为大屏端接收其他设备推送的视频内容并播放。支持扫码投屏和局域网投屏两种连接方式，能够播放所有视频编码格式，自动选择正确音轨并挂载简体中文字幕。', 'status': 'success', 'is_generated': False, 'summary': ''}", subagent_id='conv-d2y8vp5n1s74/subagent-PRDAgent-ID2021', subagent_name='PRDAgent', status='completed', summary='', files_changed=[], error=None, input={'lang_env': 'Chinese', 'lang_user': 'Chinese', 'prd': '# 需求文档\n\n## 1. 应用概述\n\n**应用名称**：投屏助手\n\n**应用描述**：一款移动端投屏软件,支持扫码投屏和局域网投屏两种连接方式,能够播放所有视频编码格式,自动选择正确音轨并挂载简体中文字幕。\n\n## 2. 用户与使用场景\n\n**目标用户**：需要将手机视频内容投屏到电视、投影仪等大屏设备的用户。\n\n**核心使用场景**：\n- 用户在家中通过扫码或局域网连接,将手机中的视频投屏到电视观看\n- 用户在会议室将手机视频投屏到投影仪进行展示\n\n## 3. 页面结构与功能说明\n\n### 3.1 页面结构\n\n```\n投屏助手App\n├── 首页(局域网设备列表)\n│   ├── 扫码投屏入口\n│   ├── 设备列表区域\n│   ├── 视频文件列表\n│   └── 播放列表入口\n├── 扫码投屏页面\n├── 播放列表页面\n├── 视频设置页面\n│   └── 外挂字幕加载\n└── 投屏播放控制页面\n```\n\n### 3.2 功能说明\n\n#### 3.2.1 首页(局域网设备列表)\n\n**功能描述**：\n- 打开App后默认进入局域网投屏模式,自动搜索同一局域网内的可投屏设备\n- 展示设备名称和连接状态\n- 展示扫码投屏入口按钮\n- 展示手机本地视频文件列表,用户可选择视频进行投屏\n- 展示播放列表入口,用户可进入播放列表页面\n\n**操作流程**：\n- 用户打开App,页面自动搜索局域网设备并展示设备列表\n- 用户点击目标设备进行连接\n- 连接成功后,用户点击视频文件,视频直接开始在大屏设备上播放\n- 用户点击「扫码投屏」进入扫码页面\n- 用户点击「播放列表」进入播放列表页面\n\n#### 3.2.2 扫码投屏页面\n\n**功能描述**：\n- 调用手机摄像头扫描大屏设备显示的二维码\n- 扫码成功后自动建立连接\n\n**操作流程**：\n- 用户对准大屏设备二维码进行扫描\n- 扫描成功后跳转至投屏播放控制页面\n\n#### 3.2.3 播放列表页面\n\n**功能描述**：\n- 展示用户创建的播放列表\n- 用户可创建新播放列表,添加视频到播放列表\n- 用户可选择播放列表进行连续投屏播放\n- 用户可编辑播放列表,调整视频顺序或删除视频\n\n**操作流程**：\n- 用户点击「创建播放列表」,输入列表名称\n- 用户从视频文件列表中选择视频添加到播放列表\n- 用户点击播放列表,选择投屏方式后按顺序播放列表中的视频\n- 用户可长按视频调整顺序,或滑动删除视频\n\n#### 3.2.4 视频设置页面\n\n**功能描述**：\n- 提供外挂字幕文件加载功能,用户可选择本地字幕文件挂载到视频\n\n**操作流程**：\n- 用户在视频文件列表长按视频,选择「加载字幕」\n- 用户从本地文件中选择字幕文件(SRT、ASS等格式)\n- 字幕文件与视频关联,投屏时自动显示\n\n#### 3.2.5 投屏播放控制页面\n\n**功能描述**：\n- 显示当前投屏状态和连接的设备信息\n- 提供播放、暂停、进度调节、音量调节等基础控制功能\n- 显示当前视频的音轨和字幕状态\n- 播放列表模式下,显示当前播放视频和列表进度\n- 提供断开投屏功能\n\n**操作流程**：\n- 用户通过控制按钮操作视频播放\n- 用户可查看当前使用的音轨和字幕信息\n- 播放列表模式下,当前视频播放完毕后自动播放下一个视频\n- 用户点击断开按钮结束投屏\n\n## 4. 业务规则与逻辑\n\n### 4.1 视频编码支持\n\n- 应用支持所有常见视频编码格式(H.264、H.265、VP9、AV1、MPEG-4等)\n- 视频文件无论何种编码格式均可正常投屏播放\n\n### 4.2 音轨自动选择规则\n\n- 应用自动检测视频文件中的所有音轨\n- 自动识别并过滤掉编码错误或无法播放的音轨\n- 优先选择正常可播放的音轨进行输出\n- 若存在多条正常音轨,优先选择中文音轨,其次为原始音轨\n\n### 4.3 字幕自动挂载规则\n\n- 应用自动检测视频文件中的内嵌字幕轨道\n- 自动识别简体中文字幕轨道并挂载\n- 若视频文件无内嵌简体中文字幕,则不显示字幕\n- 用户加载外挂字幕文件后,外挂字幕优先于内嵌字幕显示\n- 字幕挂载后自动同步显示在投屏画面中\n\n### 4.4 视频格式自动转码规则\n\n- 应用在播放视频前自动检测视频编码格式兼容性\n- 当检测到视频编码格式不兼容或无法正常播放时,自动进行格式转码\n- 转码过程在后台自动完成,用户无需任何操作\n- 转码完成后视频自动开始播放\n- 转码后的视频文件保存在手机本地存储,原视频文件保持不变\n\n### 4.5 播放列表规则\n\n- 用户可创建多个播放列表,每个列表可包含多个视频\n- 播放列表按用户添加顺序或手动调整顺序播放\n- 播放列表模式下,当前视频播放完毕后自动播放下一个视频\n- 播放列表播放完毕后停止投屏,或循环播放(根据用户设置)\n\n### 4.6 连接与投屏逻辑\n\n- 扫码投屏和局域网投屏均需手机与大屏设备处于同一网络环境\n- 打开App后自动进入局域网投屏模式,自动搜索局域网内可投屏设备\n- 用户选择设备建立连接后,连接状态保持,用户点击视频文件即可直接在大屏设备上播放\n- 投屏过程中若网络中断,自动提示用户并尝试重新连接\n- 用户主动断开投屏后,大屏设备停止播放并返回待连接状态\n\n## 5. 异常与边界情况\n\n| 场景 | 处理方式 |\n|------|----------|\n| 扫码失败或二维码无效 | 提示「扫码失败,请重试」 |\n| 局域网内无可用设备 | 提示「未搜索到可投屏设备,请确认设备已开启并连接同一网络」 |\n| 视频文件所有音轨均编码错误 | 提示「视频音轨异常,无法播放」 |\n| 视频文件无简体中文字幕 | 不显示字幕,正常播放视频 |\n| 投屏过程中网络中断 | 提示「网络连接中断,正在尝试重新连接」,尝试3次后提示「连接失败,请检查网络」 |\n| 用户选择的视频文件不存在或已损坏 | 提示「视频文件无法读取,请重新选择」 |\n| 视频自动转码失败 | 提示「视频格式不兼容,无法播放」 |\n| 外挂字幕文件格式不支持 | 提示「字幕文件格式不支持,请选择SRT或ASS格式」 |\n| 播放列表为空 | 提示「播放列表为空,请添加视频」 |\n| 播放列表播放过程中某个视频文件不存在 | 跳过该视频,自动播放下一个视频,并提示「视频文件不存在,已跳过」 |\n\n## 6. 验收标准\n\n1. 用户打开App进入首页,页面自动搜索局域网内可投屏设备并展示设备列表\n2. 用户点击目标设备,成功建立连接\n3. 用户点击首页视频文件列表中的一个视频\n4. 视频直接在大屏设备上开始播放,自动选择正确音轨,自动挂载简体中文字幕\n5. 用户在投屏播放控制页面点击暂停按钮,视频暂停播放\n6. 用户点击断开投屏,大屏设备停止播放并返回待连接状态\n\n## 7. 本期不实现功能\n\n- 投屏历史记录\n- 多设备同时投屏\n- 手动切换音轨或字幕\n- 云端视频投屏\n- 屏幕镜像功能\n- 投屏设备收藏\n- 投屏质量调节(清晰度、码率等)', 'app_type': 'Mobile App', 'is_generated': False, 'metadata': {'a2a': [{'kind': 'text', 'metadata': None, 'text': '不是搜索可投屏设备，是投屏到app'}, {'data': {'type': 'extension', 'extension': {'name': '自动', 'desc': '自动'}}, 'kind': 'data', 'metadata': None}, {'data': {'services': [{'name': 'daemon', 'address': 'http://10.45.158.84/sandbox/internal/app-d2y8vp5n1s75/daemon'}, {'name': 'vitesandbox', 'address': 'https://app-d2y8vp5n1s75-vitesandbox-bj-3.miaoda.cn/'}], 'type': 'sandbox'}, 'kind': 'data', 'metadata': None}], 'defaultAgent': 'AdaProCodeactAgent', 'agentConfig': {}, 'runtime': 'miaoda', 'lang': 'zh-CN', 'queryMode': 'deep_mode', 'clientSendTs': 1784305394038, 'appStatus': 'not_generate', 'hasAgent': False, 'cur_version_last_event_id': -1, 'supportSupabase': 'true', 'subscription_plan': 'pro', 'senderUserId': 'user-b462260nihhc', 'is_user_input': True, 'firstMessage': '请生成一个App，内容如下：帮我制作一个投屏软件，支持扫码投屏和局域网投屏，支持所有视频编码，能够自动选择正确的音轨，避开错误编码的音轨，能够自动挂载简体中文字幕'}, 'generate_app_requested': False}, output={'actions': [{'type': 'button', 'label': '立即创作', 'value': '立即创作', 'event': {'name': 'generateApp'}}], 'appInfo': {'requirementType': 'Mobile App'}, 'appType': 'Mobile App', 'prd': '# 需求文档\n\n## 1. 应用概述\n\n**应用名称**：投屏助手\n\n**应用描述**：一款移动端投屏接收软件，作为大屏端接收其他设备推送的视频内容并播放。支持扫码投屏和局域网投屏两种连接方式，能够播放所有视频编码格式，自动选择正确音轨并挂载简体中文字幕。\n\n## 2. 用户与使用场景\n\n**目标用户**：需要将手机、平板或电脑作为大屏播放设备，接收其他设备投屏内容的用户。\n\n**核心使用场景**：\n- 用户将手机/平板连接到电视或投影仪，打开本App作为投屏接收端，其他设备扫码或通过局域网连接后推送视频进行播放\n- 用户在会议室将设备作为投屏接收端，接收其他参会者推送的视频内容\n\n## 3. 页面结构与功能说明\n\n### 3.1 页面结构\n\n```\n投屏助手App（接收端）\n├── 待连接页面\n│   ├── 二维码展示区域\n│   ├── 局域网连接信息展示\n│   └── 连接状态提示\n├── 视频播放页面\n│   ├── 视频播放区域\n│   ├── 播放控制栏\n│   ├── 播放列表显示\n│   └── 字幕显示区域\n└── 设置页面\n    └── 外挂字幕加载\n```\n\n### 3.2 功能说明\n\n#### 3.2.1 待连接页面\n\n**功能描述**：\n- App打开后默认进入待连接状态\n- 页面中央展示二维码，供其他设备扫码连接\n- 页面下方展示局域网连接信息（设备名称、IP地址等），供其他设备通过局域网搜索并连接\n- 显示当前连接状态（待连接/已连接）\n- 自动监听局域网内的投屏连接请求\n\n**操作流程**：\n- 用户打开App，页面自动生成二维码并展示局域网连接信息\n- 其他设备扫描二维码或通过局域网搜索到本设备后发起连接\n- 连接成功后，页面自动跳转至视频播放页面\n\n#### 3.2.2 视频播放页面\n\n**功能描述**：\n- 接收发送端推送的视频内容并播放\n- 显示视频播放画面\n- 提供播放、暂停、进度调节、音量调节等基础控制功能\n- 显示当前播放的音轨和字幕状态\n- 支持播放列表模式，显示当前播放视频和列表中的其他视频\n- 提供断开连接功能\n\n**操作流程**：\n- 发送端推送视频后，视频自动开始播放\n- 用户通过控制栏操作视频播放（暂停、调节进度、调节音量）\n- 播放列表模式下，当前视频播放完毕后自动播放下一个视频\n- 用户点击断开连接按钮，停止播放并返回待连接页面\n\n#### 3.2.3 设置页面\n\n**功能描述**：\n- 提供外挂字幕文件加载功能\n- 用户可从本地选择字幕文件（SRT、ASS等格式）挂载到当前播放视频\n- 发送端也可推送字幕文件到本App进行挂载\n\n**操作流程**：\n- 用户在视频播放页面点击设置按钮进入设置页面\n- 用户点击「加载字幕」，从本地文件中选择字幕文件\n- 字幕文件加载成功后，自动显示在视频播放画面中\n- 发送端推送字幕文件时，自动加载并显示\n\n## 4. 业务规则与逻辑\n\n### 4.1 连接与投屏逻辑\n\n- 扫码投屏和局域网投屏均需发送端与本App处于同一网络环境\n- App打开后自动生成二维码并开启局域网广播，等待其他设备连接\n- 发送端扫描二维码或通过局域网搜索到本设备后，发起连接请求\n- 连接建立后，发送端推送视频到本App，本App自动开始播放\n- 投屏过程中若网络中断，自动提示用户并尝试重新连接\n- 用户主动断开连接后，停止播放并返回待连接页面\n\n### 4.2 视频编码支持与自动转码规则\n\n- 应用支持所有常见视频编码格式（H.264、H.265、VP9、AV1、MPEG-4等）\n- 视频文件无论何种编码格式均可正常播放\n- 当检测到视频编码格式不兼容或无法正常播放时，自动进行格式转码\n- 转码过程在后台自动完成，用户无需任何操作\n- 转码完成后视频自动开始播放\n\n### 4.3 音轨自动选择规则\n\n- 应用自动检测视频文件中的所有音轨\n- 自动识别并过滤掉编码错误或无法播放的音轨\n- 优先选择正常可播放的音轨进行输出\n- 若存在多条正常音轨，优先选择中文音轨，其次为原始音轨\n\n### 4.4 字幕自动挂载规则\n\n- 应用自动检测视频文件中的内嵌字幕轨道\n- 自动识别简体中文字幕轨道并挂载\n- 若视频文件无内嵌简体中文字幕，则不显示字幕\n- 用户加载外挂字幕文件后，外挂字幕优先于内嵌字幕显示\n- 发送端推送字幕文件时，自动加载并优先显示\n- 字幕挂载后自动同步显示在视频播放画面中\n\n### 4.5 播放列表规则\n\n- 发送端可推送多个视频组成播放列表\n- 播放列表按发送端推送顺序播放\n- 播放列表模式下，当前视频播放完毕后自动播放下一个视频\n- 播放列表播放完毕后停止播放，等待发送端继续推送或断开连接\n\n## 5. 异常与边界情况\n\n| 场景 | 处理方式 |\n|------|----------|\n| 发送端扫码失败或二维码无效 | 提示「扫码失败，请重试」 |\n| 局域网内无发送端连接 | 保持待连接状态，持续展示二维码和局域网信息 |\n| 视频文件所有音轨均编码错误 | 提示「视频音轨异常，无法播放」 |\n| 视频文件无简体中文字幕 | 不显示字幕，正常播放视频 |\n| 投屏过程中网络中断 | 提示「网络连接中断，正在尝试重新连接」，尝试3次后提示「连接失败，请检查网络」 |\n| 发送端推送的视频文件损坏或无法读取 | 提示「视频文件无法读取，请重新推送」 |\n| 视频自动转码失败 | 提示「视频格式不兼容，无法播放」 |\n| 外挂字幕文件格式不支持 | 提示「字幕文件格式不支持，请选择SRT或ASS格式」 |\n| 播放列表播放过程中某个视频文件损坏 | 跳过该视频，自动播放下一个视频，并提示「视频文件异常，已跳过」 |\n| 发送端推送空播放列表 | 提示「播放列表为空，请推送视频」 |\n\n## 6. 验收标准\n\n1. 用户打开App进入待连接页面，页面展示二维码和局域网连接信息\n2. 发送端扫描二维码或通过局域网搜索到本设备，成功建立连接\n3. 发送端推送一个视频文件到本App\n4. 视频自动在本App上开始播放，自动选择正确音轨，自动挂载简体中文字幕\n5. 用户点击暂停按钮，视频暂停播放\n6. 用户点击断开连接，视频停止播放并返回待连接页面\n\n## 7. 本期不实现功能\n\n- 投屏历史记录\n- 多设备同时投屏\n- 手动切换音轨或字幕\n- 云端视频投屏\n- 屏幕镜像功能\n- 投屏质量调节（清晰度、码率等）\n- 发送端设备管理\n- 播放列表编辑功能（调整顺序、删除视频等）', 'intent_query': '已生成的需求文档如下：\n# 需求文档\n\n## 1. 应用概述\n\n**应用名称**：投屏助手\n\n**应用描述**：一款移动端投屏软件,支持扫码投屏和局域网投屏两种连接方式,能够播放所有视频编码格式,自动选择正确音轨并挂载简体中文字幕。\n\n## 2. 用户与使用场景\n\n**目标用户**：需要将手机视频内容投屏到电视、投影仪等大屏设备的用户。\n\n**核心使用场景**：\n- 用户在家中通过扫码或局域网连接,将手机中的视频投屏到电视观看\n- 用户在会议室将手机视频投屏到投影仪进行展示\n\n## 3. 页面结构与功能说明\n\n### 3.1 页面结构\n\n```\n投屏助手App\n├── 首页(局域网设备列表)\n│   ├── 扫码投屏入口\n│   ├── 设备列表区域\n│   ├── 视频文件列表\n│   └── 播放列表入口\n├── 扫码投屏页面\n├── 播放列表页面\n├── 视频设置页面\n│   └── 外挂字幕加载\n└── 投屏播放控制页面\n```\n\n### 3.2 功能说明\n\n#### 3.2.1 首页(局域网设备列表)\n\n**功能描述**：\n- 打开App后默认进入局域网投屏模式,自动搜索同一局域网内的可投屏设备\n- 展示设备名称和连接状态\n- 展示扫码投屏入口按钮\n- 展示手机本地视频文件列表,用户可选择视频进行投屏\n- 展示播放列表入口,用户可进入播放列表页面\n\n**操作流程**：\n- 用户打开App,页面自动搜索局域网设备并展示设备列表\n- 用户点击目标设备进行连接\n- 连接成功后,用户点击视频文件,视频直接开始在大屏设备上播放\n- 用户点击「扫码投屏」进入扫码页面\n- 用户点击「播放列表」进入播放列表页面\n\n#### 3.2.2 扫码投屏页面\n\n**功能描述**：\n- 调用手机摄像头扫描大屏设备显示的二维码\n- 扫码成功后自动建立连接\n\n**操作流程**：\n- 用户对准大屏设备二维码进行扫描\n- 扫描成功后跳转至投屏播放控制页面\n\n#### 3.2.3 播放列表页面\n\n**功能描述**：\n- 展示用户创建的播放列表\n- 用户可创建新播放列表,添加视频到播放列表\n- 用户可选择播放列表进行连续投屏播放\n- 用户可编辑播放列表,调整视频顺序或删除视频\n\n**操作流程**：\n- 用户点击「创建播放列表」,输入列表名称\n- 用户从视频文件列表中选择视频添加到播放列表\n- 用户点击播放列表,选择投屏方式后按顺序播放列表中的视频\n- 用户可长按视频调整顺序,或滑动删除视频\n\n#### 3.2.4 视频设置页面\n\n**功能描述**：\n- 提供外挂字幕文件加载功能,用户可选择本地字幕文件挂载到视频\n\n**操作流程**：\n- 用户在视频文件列表长按视频,选择「加载字幕」\n- 用户从本地文件中选择字幕文件(SRT、ASS等格式)\n- 字幕文件与视频关联,投屏时自动显示\n\n#### 3.2.5 投屏播放控制页面\n\n**功能描述**：\n- 显示当前投屏状态和连接的设备信息\n- 提供播放、暂停、进度调节、音量调节等基础控制功能\n- 显示当前视频的音轨和字幕状态\n- 播放列表模式下,显示当前播放视频和列表进度\n- 提供断开投屏功能\n\n**操作流程**：\n- 用户通过控制按钮操作视频播放\n- 用户可查看当前使用的音轨和字幕信息\n- 播放列表模式下,当前视频播放完毕后自动播放下一个视频\n- 用户点击断开按钮结束投屏\n\n## 4. 业务规则与逻辑\n\n### 4.1 视频编码支持\n\n- 应用支持所有常见视频编码格式(H.264、H.265、VP9、AV1、MPEG-4等)\n- 视频文件无论何种编码格式均可正常投屏播放\n\n### 4.2 音轨自动选择规则\n\n- 应用自动检测视频文件中的所有音轨\n- 自动识别并过滤掉编码错误或无法播放的音轨\n- 优先选择正常可播放的音轨进行输出\n- 若存在多条正常音轨,优先选择中文音轨,其次为原始音轨\n\n### 4.3 字幕自动挂载规则\n\n- 应用自动检测视频文件中的内嵌字幕轨道\n- 自动识别简体中文字幕轨道并挂载\n- 若视频文件无内嵌简体中文字幕,则不显示字幕\n- 用户加载外挂字幕文件后,外挂字幕优先于内嵌字幕显示\n- 字幕挂载后自动同步显示在投屏画面中\n\n### 4.4 视频格式自动转码规则\n\n- 应用在播放视频前自动检测视频编码格式兼容性\n- 当检测到视频编码格式不兼容或无法正常播放时,自动进行格式转码\n- 转码过程在后台自动完成,用户无需任何操作\n- 转码完成后视频自动开始播放\n- 转码后的视频文件保存在手机本地存储,原视频文件保持不变\n\n### 4.5 播放列表规则\n\n- 用户可创建多个播放列表,每个列表可包含多个视频\n- 播放列表按用户添加顺序或手动调整顺序播放\n- 播放列表模式下,当前视频播放完毕后自动播放下一个视频\n- 播放列表播放完毕后停止投屏,或循环播放(根据用户设置)\n\n### 4.6 连接与投屏逻辑\n\n- 扫码投屏和局域网投屏均需手机与大屏设备处于同一网络环境\n- 打开App后自动进入局域网投屏模式,自动搜索局域网内可投屏设备\n- 用户选择设备建立连接后,连接状态保持,用户点击视频文件即可直接在大屏设备上播放\n- 投屏过程中若网络中断,自动提示用户并尝试重新连接\n- 用户主动断开投屏后,大屏设备停止播放并返回待连接状态\n\n## 5. 异常与边界情况\n\n| 场景 | 处理方式 |\n|------|----------|\n| 扫码失败或二维码无效 | 提示「扫码失败,请重试」 |\n| 局域网内无可用设备 | 提示「未搜索到可投屏设备,请确认设备已开启并连接同一网络」 |\n| 视频文件所有音轨均编码错误 | 提示「视频音轨异常,无法播放」 |\n| 视频文件无简体中文字幕 | 不显示字幕,正常播放视频 |\n| 投屏过程中网络中断 | 提示「网络连接中断,正在尝试重新连接」,尝试3次后提示「连接失败,请检查网络」 |\n| 用户选择的视频文件不存在或已损坏 | 提示「视频文件无法读取,请重新选择」 |\n| 视频自动转码失败 | 提示「视频格式不兼容,无法播放」 |\n| 外挂字幕文件格式不支持 | 提示「字幕文件格式不支持,请选择SRT或ASS格式」 |\n| 播放列表为空 | 提示「播放列表为空,请添加视频」 |\n| 播放列表播放过程中某个视频文件不存在 | 跳过该视频,自动播放下一个视频,并提示「视频文件不存在,已跳过」 |\n\n## 6. 验收标准\n\n1. 用户打开App进入首页,页面自动搜索局域网内可投屏设备并展示设备列表\n2. 用户点击目标设备,成功建立连接\n3. 用户点击首页视频文件列表中的一个视频\n4. 视频直接在大屏设备上开始播放,自动选择正确音轨,自动挂载简体中文字幕\n5. 用户在投屏播放控制页面点击暂停按钮,视频暂停播放\n6. 用户点击断开投屏,大屏设备停止播放并返回待连接状态\n\n## 7. 本期不实现功能\n\n- 投屏历史记录\n- 多设备同时投屏\n- 手动切换音轨或字幕\n- 云端视频投屏\n- 屏幕镜像功能\n- 投屏设备收藏\n- 投屏质量调节(清晰度、码率等)\n\n用户提出的修改要求如下：\n重新理解投屏助手App的定位：这个App本身就是投屏的接收端（即大屏端），其他设备（如手机、电脑）通过扫码或局域网把视频内容投屏到这个App上播放。\n\n核心功能：\n1. 这个App作为投屏接收端，显示一个二维码供其他设备扫码连接，同时支持局域网发现（其他设备可搜索到本App并发起投屏）\n2. 连接建立后，发送端推送视频到本App，本App负责播放视频\n3. 支持所有视频编码格式（自动转码确保兼容）\n4. 自动选择正确音轨（过滤编码错误的音轨，优先中文音轨）\n5. 自动挂载简体中文字幕（内嵌或外挂）\n6. 播放列表：支持接收多个视频组成播放列表，按顺序播放\n7. 外挂字幕：支持从本地或发送端加载SRT/ASS字幕文件挂载到当前播放视频\n\nApp打开后默认显示待连接界面，展示二维码和局域网连接信息，连接成功后直接开始播放推送过来的视频。\n\n请基于上述要求直接生成更新后的需求文档，无需澄清。', 'type': 'prdAgentAction', 'app_name': '投屏助手', 'app_desc': '一款移动端投屏接收软件，作为大屏端接收其他设备推送的视频内容并播放。支持扫码投屏和局域网投屏两种连接方式，能够播放所有视频编码格式，自动选择正确音轨并挂载简体中文字幕。', 'status': 'success', 'is_generated': False, 'summary': ''}, observation=<ObservationType.SUBAGENT: 'subagent'>)
+</observation>
+<action>
+**MessageAction** (source=EventSource.AGENT)
+CONTENT: 
+</action>
+<action>
+**MessageAction** (source=EventSource.USER)
+CONTENT: 立即创作
+</action>
+<action>
+**RecallAction**
+QUERY: 立即创作
+</action>
+<action>
+**MessageAction** (source=EventSource.AGENT)
+CONTENT: 好的！我将根据你的需求创建一个应用，应用内将包含多个功能和相应页面。接下来，我会先根据需求文档搭建应用框架并梳理一下整体的实现方案，随后分步骤进行对应的任务执行。
+</action>
+<action>
+**MCPAction**
+NAME: generate_start
+ARGUMENTS: {'appId': 'app-d2y8vp5n1s75', 'userId': 'user-b462260nihhc', 'requirementType': 'Mobile App', 'hasAgent': False, 'hasCodeTemplate': 'NONE', 'codeTemplateZipUrl': '', 'isBoilerplate': False, 'isFirstGeneration': True, 'use_supabase': False}
+</action>
+<observation>
+**MCPObservation**
+NAME: generate_start
+RESULTS: {"code":0,"message":"success"}
+</observation>
+<action>
+SkillAction(skill='mobile-app', args='', thought='我来开始创作这个投屏助手App。让我先获取所需的技能信息。', plugin_id=17507, action=<ActionType.SKILL: 'skill'>, security_risk=None)
+</action>
+<observation>
+SkillObservation(content='Base directory for this skill: /workspace/app-d2y8vp5n1s75/.skills/mobile-app\n\n# Mobile App Development\n\n## REQUIRED: Read References Before Implementation\n\nRules below define constraints and prohibitions — they do NOT contain implementation code.\nCorrect implementation patterns are in reference files. Writing code without reading references produces incorrect results.\n\n1. Match your task to the reference table below\n2. `view` ALL matching reference files\n3. Follow the exact patterns from references — do NOT invent alternatives\n\n| Reference | When to read |\n|-----------|-------------|\n| `mobile-app/references/auth_routing.md` | Auth route guards (`Stack.Protected`), SessionProvider, login redirect flow, root layout loading state |\n| `mobile-app/references/media.md` | Image display, camera/gallery picker, compression, image upload to Supabase Storage, saving to photo library, passing URIs between screens, `expo-video`, device-capability permission pattern (incl. motion sensors / Pedometer), `app.json` permission declarations, image search (`image_search`), app icon generation (`app_icon_generate`) |\n| `mobile-app/references/data_patterns.md` | React Query, `expo-secure-store`, offline handling, local database (`expo-sqlite`) |\n| `mobile-app/references/navigation.md` | Complete `_layout.tsx` examples, `(tabs)/` directory structure, no-auth setup (removing Stack.Protected), dynamic routes (`[id].tsx`), `useFocusEffect` pattern, page navigation (`router.push/replace/back`, `Link`), modal / form sheet |\n| `mobile-app/references/components.md` | Pull-to-refresh, infinite scroll, instant touch feedback, keyboard avoidance, StatusBar, loading/empty states, error UX, splash screen, full icon mapping table, date/time picker example, ScrollView sidebar, Pressable active: modifier, form sheet |\n| `mobile-app/references/packages.md` | On-demand package classified list (Media / Device / Data / System / UI / Graphics) + platform compatibility |\n\n\n## Auth Routing Rules\n\n- Stack.Protected mutual exclusion: `(app)` and `(auth)` route groups MUST be mutually exclusive — use TWO `Stack.Protected` blocks in root `_layout.tsx`. Correct pattern → `references/auth_routing.md`\n- Auth redirect **REQUIRED**: `Stack.Protected guard={!!session}` only controls route availability — it does NOT auto-navigate.\n  MUST call `router.replace("/")` after every successful login / `signUp` / `signOut`.\n- NEVER `return null` in `_layout.tsx` loading: When `isLoading` is true, replace with `<ActivityIndicator>` instead — returning null causes permanent white screen.\n- ctx.tsx: MUST NOT recreate `src/ctx.tsx` — the boilerplate ships it with `supabase.auth.onAuthStateChange()` listener. Import `useSession` from `@/ctx` directly.\n\n## Device Permission Rules (ALL capabilities)\n\n- Permission is runtime, not static: applies to EVERY permission-gated capability — camera, photo library, location, notifications, AND **motion sensors** (e.g. `expo-sensors` Pedometer). Declaring a plugin in `app.json` does NOT grant access. MUST call the module\'s `requestPermissionsAsync()` at runtime and drive a `denied` UI from state (NOT `Alert.alert`). NEVER `catch` a permission error to silently degrade to `0` / empty data. Correct pattern → `references/media.md` § Device-Capability Permission Handling\n- Config plugin three-step rule: ① `pnpm exec expo install expo-xxx` → ② declare in `app.json` plugins with permission descriptions → ③ write feature code. Skipping any step breaks the feature; missing step ② causes lint error `no-undeclared-expo-plugin`.\n- `app.json` ↔ `package.json` sync **CRITICAL**: Every package listed in `app.json` `plugins` MUST also exist in `package.json` `dependencies`. Missing entries cause "Failed to resolve plugin for module" errors.\n\n## Media Rules\n\n- Image picking: Use `expo-image-picker` (NOT `expo-media-library`) for selecting images from gallery or camera.\n- `expo-media-library` **CRITICAL**: ALWAYS pass `(false, [\'photo\'])` — default also requests audio/video, which causes crashes if missing manifest declarations. Correct pattern → `references/media.md`\n- Image display: ALWAYS use `Image` from `expo-image` — NEVER `<img>` or `Image` from `react-native`.\n- Image upload: NEVER use `FileReader`, `blob`, or `base64` in React Native. Correct pattern → `references/media.md` § Image Upload\n- Image compression **REQUIRED** before upload: Use `expo-image-manipulator` to compress before uploading. Max upload size: 1 MB.\n- Passing URIs between screens: NEVER pass image URIs via expo-router URL params — Android `file://`/`content://` URIs get double-encoded and arrive corrupted.\n  Use a module-level store (`lib/imageStore.ts`).\n- iOS permission language: Android permissions are auto-merged into `AndroidManifest.xml`; iOS permissions MUST include user-readable descriptions in plugin config (`*Permission` fields).\n  The language MUST match the user\'s language (e.g., Chinese for Chinese users, English for English users).\n  - English user → `"Allow $(PRODUCT_NAME) to access the camera to take photos"`\n  - Chinese user → `"允许 $(PRODUCT_NAME) 访问相机以拍摄照片"`\n- No unnecessary packages: MUST NOT install device-capability packages the App does not actually use — unnecessary packages trigger permission prompts, degrade UX, and risk App Store rejection.\n- expo-video: NEVER use `expo-av` — always use `expo-video` for video playback. NEVER auto-load video on Web mount — browser autoplay policy throws `NotAllowedError`. Correct pattern → `references/media.md` § expo-video\n- Save to Photo Library: MUST use `expo-file-system` (requires plugin in app.json) to download remote URL to a local `file://` path first, then pass to `MediaLibrary.createAssetAsync()`. `saveToLibraryAsync`/`createAssetAsync` only accept `file://` URIs; `content://` URIs must be normalized via `manipulateAsync` first.\n- expo-file-system import: MUST use namespace import (`import * as FileSystem from "expo-file-system"`). NEVER use default import or named destructuring — `documentDirectory` and `downloadAsync` only exist on the namespace object.\n\n## Data Advanced Rules\n\n- React Query: Simple cases: `useFocusEffect` + `expo/fetch` + state. Complex cases with caching: use `@tanstack/react-query`. Correct pattern → `references/data_patterns.md` § React Query\n- Offline handling: Check network status with `expo-network` (`Network.getNetworkStateAsync()`). Show meaningful offline UI instead of silent failures. Implement pull-to-refresh for manual data refresh.\n- expo-sqlite: ONLY use async APIs (`openDatabaseAsync`/`runAsync`/`getAllAsync`) — sync APIs crash on Web. NEVER initialize DB at module top level. Correct pattern → `references/data_patterns.md` § expo-sqlite\n\n## File Handling\n\n- File preview (PDF, DOCX, Markdown — cross-platform iOS/Android/Web):\n  - PDF, DOCX: use `expo-web-browser` (requires plugin in app.json) → `WebBrowser.openBrowserAsync(fileUrl)`\n  - Markdown: render inline with `react-native-marked`\n- File download (cross-platform): use `expo-web-browser` — `WebBrowser.openBrowserAsync(fileUrl)`. No platform branching needed.', observation=<ObservationType.SKILL: 'skill'>, skill='mobile-app', success=True, data={'object_storage_path': 'skill-online:prod/miaoda_skills/prompts/system/mobile-app/'})
+</observation>
+<action>
+**MCPAction**
+NAME: aesthetic_template
+ARGUMENTS: {'input': '自动', 'appId': 'app-d2y8vp5n1s75', 'userId': 'user-b462260nihhc', 'appType': 'Mobile App', 'prd': '# 需求文档\n\n## 1. 应用概述\n\n**应用名称**：投屏助手\n\n**应用描述**：一款移动端投屏接收软件，作为大屏端接收其他设备推送的视频内容并播放。支持扫码投屏和局域网投屏两种连接方式，能够播放所有视频编码格式，自动选择正确音轨并挂载简体中文字幕。\n\n## 2. 用户与使用场景\n\n**目标用户**：需要将手机、平板或电脑作为大屏播放设备，接收其他设备投屏内容的用户。\n\n**核心使用场景**：\n- 用户将手机/平板连接到电视或投影仪，打开本App作为投屏接收端，其他设备扫码或通过局域网连接后推送视频进行播放\n- 用户在会议室将设备作为投屏接收端，接收其他参会者推送的视频内容\n\n## 3. 页面结构与功能说明\n\n### 3.1 页面结构\n\n```\n投屏助手App（接收端）\n├── 待连接页面\n│   ├── 二维码展示区域\n│   ├── 局域网连接信息展示\n│   └── 连接状态提示\n├── 视频播放页面\n│   ├── 视频播放区域\n│   ├── 播放控制栏\n│   ├── 播放列表显示\n│   └── 字幕显示区域\n└── 设置页面\n    └── 外挂字幕加载\n```\n\n### 3.2 功能说明\n\n#### 3.2.1 待连接页面\n\n**功能描述**：\n- App打开后默认进入待连接状态\n- 页面中央展示二维码，供其他设备扫码连接\n- 页面下方展示局域网连接信息（设备名称、IP地址等），供其他设备通过局域网搜索并连接\n- 显示当前连接状态（待连接/已连接）\n- 自动监听局域网内的投屏连接请求\n\n**操作流程**：\n- 用户打开App，页面自动生成二维码并展示局域网连接信息\n- 其他设备扫描二维码或通过局域网搜索到本设备后发起连接\n- 连接成功后，页面自动跳转至视频播放页面\n\n#### 3.2.2 视频播放页面\n\n**功能描述**：\n- 接收发送端推送的视频内容并播放\n- 显示视频播放画面\n- 提供播放、暂停、进度调节、音量调节等基础控制功能\n- 显示当前播放的音轨和字幕状态\n- 支持播放列表模式，显示当前播放视频和列表中的其他视频\n- 提供断开连接功能\n\n**操作流程**：\n- 发送端推送视频后，视频自动开始播放\n- 用户通过控制栏操作视频播放（暂停、调节进度、调节音量）\n- 播放列表模式下，当前视频播放完毕后自动播放下一个视频\n- 用户点击断开连接按钮，停止播放并返回待连接页面\n\n#### 3.2.3 设置页面\n\n**功能描述**：\n- 提供外挂字幕文件加载功能\n- 用户可从本地选择字幕文件（SRT、ASS等格式）挂载到当前播放视频\n- 发送端也可推送字幕文件到本App进行挂载\n\n**操作流程**：\n- 用户在视频播放页面点击设置按钮进入设置页面\n- 用户点击「加载字幕」，从本地文件中选择字幕文件\n- 字幕文件加载成功后，自动显示在视频播放画面中\n- 发送端推送字幕文件时，自动加载并显示\n\n## 4. 业务规则与逻辑\n\n### 4.1 连接与投屏逻辑\n\n- 扫码投屏和局域网投屏均需发送端与本App处于同一网络环境\n- App打开后自动生成二维码并开启局域网广播，等待其他设备连接\n- 发送端扫描二维码或通过局域网搜索到本设备后，发起连接请求\n- 连接建立后，发送端推送视频到本App，本App自动开始播放\n- 投屏过程中若网络中断，自动提示用户并尝试重新连接\n- 用户主动断开连接后，停止播放并返回待连接页面\n\n### 4.2 视频编码支持与自动转码规则\n\n- 应用支持所有常见视频编码格式（H.264、H.265、VP9、AV1、MPEG-4等）\n- 视频文件无论何种编码格式均可正常播放\n- 当检测到视频编码格式不兼容或无法正常播放时，自动进行格式转码\n- 转码过程在后台自动完成，用户无需任何操作\n- 转码完成后视频自动开始播放\n\n### 4.3 音轨自动选择规则\n\n- 应用自动检测视频文件中的所有音轨\n- 自动识别并过滤掉编码错误或无法播放的音轨\n- 优先选择正常可播放的音轨进行输出\n- 若存在多条正常音轨，优先选择中文音轨，其次为原始音轨\n\n### 4.4 字幕自动挂载规则\n\n- 应用自动检测视频文件中的内嵌字幕轨道\n- 自动识别简体中文字幕轨道并挂载\n- 若视频文件无内嵌简体中文字幕，则不显示字幕\n- 用户加载外挂字幕文件后，外挂字幕优先于内嵌字幕显示\n- 发送端推送字幕文件时，自动加载并优先显示\n- 字幕挂载后自动同步显示在视频播放画面中\n\n### 4.5 播放列表规则\n\n- 发送端可推送多个视频组成播放列表\n- 播放列表按发送端推送顺序播放\n- 播放列表模式下，当前视频播放完毕后自动播放下一个视频\n- 播放列表播放完毕后停止播放，等待发送端继续推送或断开连接\n\n## 5. 异常与边界情况\n\n| 场景 | 处理方式 |\n|------|----------|\n| 发送端扫码失败或二维码无效 | 提示「扫码失败，请重试」 |\n| 局域网内无发送端连接 | 保持待连接状态，持续展示二维码和局域网信息 |\n| 视频文件所有音轨均编码错误 | 提示「视频音轨异常，无法播放」 |\n| 视频文件无简体中文字幕 | 不显示字幕，正常播放视频 |\n| 投屏过程中网络中断 | 提示「网络连接中断，正在尝试重新连接」，尝试3次后提示「连接失败，请检查网络」 |\n| 发送端推送的视频文件损坏或无法读取 | 提示「视频文件无法读取，请重新推送」 |\n| 视频自动转码失败 | 提示「视频格式不兼容，无法播放」 |\n| 外挂字幕文件格式不支持 | 提示「字幕文件格式不支持，请选择SRT或ASS格式」 |\n| 播放列表播放过程中某个视频文件损坏 | 跳过该视频，自动播放下一个视频，并提示「视频文件异常，已跳过」 |\n| 发送端推送空播放列表 | 提示「播放列表为空，请推送视频」 |\n\n## 6. 验收标准\n\n1. 用户打开App进入待连接页面，页面展示二维码和局域网连接信息\n2. 发送端扫描二维码或通过局域网搜索到本设备，成功建立连接\n3. 发送端推送一个视频文件到本App\n4. 视频自动在本App上开始播放，自动选择正确音轨，自动挂载简体中文字幕\n5. 用户点击暂停按钮，视频暂停播放\n6. 用户点击断开连接，视频停止播放并返回待连接页面\n\n## 7. 本期不实现功能\n\n- 投屏历史记录\n- 多设备同时投屏\n- 手动切换音轨或字幕\n- 云端视频投屏\n- 屏幕镜像功能\n- 投屏质量调节（清晰度、码率等）\n- 发送端设备管理\n- 播放列表编辑功能（调整顺序、删除视频等）'}
+</action>
+<observation>
+**MCPObservation**
+NAME: aesthetic_template
+RESULTS: ### 视觉风格定义：极简专业暗黑风（Minimalist Professional Dark）
+基于大屏接收端（电视/投影/平板）的远距离观看与沉浸式播放场景，设计采用极简暗色工具风格。摒弃一切干扰观影的装饰，通过极致的对比度与留白，确保连接信息的远距可读性与播放过程的无感体验。
+
+### 1. Color（配色方案）
+- 主背景色：采用深邃炭灰（#121212），营造沉浸式大屏观影与专业会议氛围，避免纯黑带来的视觉疲劳。
+- 主色/强调色：使用高亮荧光青（#00E5FF）作为唯一强调色，用于连接成功状态、播放进度条及焦点按钮，传递科技与畅通感。
+- 灰阶：文字与图标使用纯白（#FFFFFF）至中灰（#808080）的三个层级，确保信息在深色背景下的绝对清晰。禁止使用渐变色。
+
+### 2. Layout（布局结构）
+- 待连接页：采用绝对居中的大留白布局。二维码占据视觉中心，局域网IP信息以高对比度文字紧随其下，确保远距离清晰可读。
+- 播放页：全屏无边框沉浸式布局。播放控制栏悬浮于底部边缘，播放列表与设置面板采用右侧滑出的半透明抽屉结构，避免割裂画面。
+- 层级关系：严格遵循“背景-内容-悬浮控制”三层Z轴结构，通过纯色遮罩的透明度差异来区分层级，摒弃物理阴影。
+
+### 3. Elements（界面元素）
+- 字体与图标：采用几何感强的无衬线字体，字重对比极端（极粗标题与极细说明）。图标统一为2px线型，无填充、无多余细节。
+- 容器与边缘：所有卡片、按钮及弹窗均采用极小圆角（2px）或直角，强化工具的理性与硬朗质感。
+- 状态反馈：二维码区域仅保留四个直角边框作为扫描引导。转码或加载状态仅使用极简的单色线条微动效。禁止使用任何emoji与装饰图形。
+
+### 4. Motion（动效设计）
+- 状态切换：待连接至播放页面的跳转采用平滑的淡入淡出（Opacity过渡，时长400ms），避免大屏画面的突兀闪烁。
+- 悬浮交互：播放控制栏在无操作3秒后，通过Y轴向下平移（TranslateY）配合透明度渐变自动隐藏，保持观影沉浸感。
+- 反馈动效：连接成功瞬间，二维码边框短暂高亮为荧光青并伴随轻微放大（Scale 1.05），提供明确的连接确认感。避免使用复杂动画库。
+</observation>
+<action>
+FileReadAction(path='/workspace/app-d2y8vp5n1s75', start=0, end=-1, thought='', action=<ActionType.READ: 'read'>, security_risk=None, impl_source=<FileReadSource.OH_ACI: 'oh_aci'>, view_range=None, user_hidden=False)
+</action>
+<observation>
+[Read from /workspace/app-d2y8vp5n1s75 is successful.]
+Here's the files and directories up to 2 levels deep in /workspace/app-d2y8vp5n1s75, excluding hidden:
+/workspace/app-d2y8vp5n1s75
+/workspace/app-d2y8vp5n1s75/app.json
+/workspace/app-d2y8vp5n1s75/assets
+/workspace/app-d2y8vp5n1s75/assets/favicon.png
+/workspace/app-d2y8vp5n1s75/assets/adaptive-icon.png
+/workspace/app-d2y8vp5n1s75/assets/icon.png
+/workspace/app-d2y8vp5n1s75/pnpm-lock.yaml
+/workspace/app-d2y8vp5n1s75/node_modules
+/workspace/app-d2y8vp5n1s75/node_modules/miaoda-expo-devkit
+/workspace/app-d2y8vp5n1s75/node_modules/expo-status-bar
+/workspace/app-d2y8vp5n1s75/node_modules/react-native-screens
+/workspace/app-d2y8vp5n1s75/node_modules/react-native-gesture-handler
+/workspace/app-d2y8vp5n1s75/node_modules/react-native-worklets
+/workspace/app-d2y8vp5n1s75/node_modules/react-native-web
+/workspace/app-d2y8vp5n1s75/node_modules/@babel
+/workspace/app-d2y8vp5n1s75/node_modules/expo-router
+/workspace/app-d2y8vp5n1s75/node_modules/react-native-safe-area-context
+/workspace/app-d2y8vp5n1s75/node_modules/react-native
+/workspace/app-d2y8vp5n1s75/node_modules/react-native-css-interop
+/workspace/app-d2y8vp5n1s75/node_modules/eslint-plugin-expo
+/workspace/app-d2y8vp5n1s75/node_modules/prettier-plugin-tailwindcss
+/workspace/app-d2y8vp5n1s75/node_modules/react-dom
+/workspace/app-d2y8vp5n1s75/node_modules/@rn-primitives
+/workspace/app-d2y8vp5n1s75/node_modules/@expo
+/workspace/app-d2y8vp5n1s75/node_modules/babel-preset-expo
+/workspace/app-d2y8vp5n1s75/node_modules/class-variance-authority
+/workspace/app-d2y8vp5n1s75/node_modules/expo-asset
+/workspace/app-d2y8vp5n1s75/node_modules/@biomejs
+/workspace/app-d2y8vp5n1s75/node_modules/lucide-react-native
+/workspace/app-d2y8vp5n1s75/node_modules/@react-navigation
+/workspace/app-d2y8vp5n1s75/node_modules/clsx
+/workspace/app-d2y8vp5n1s75/node_modules/expo-sqlite
+/workspace/app-d2y8vp5n1s75/node_modules/expo-system-ui
+/workspace/app-d2y8vp5n1s75/node_modules/nativewind
+/workspace/app-d2y8vp5n1s75/node_modules/expo-linking
+/workspace/app-d2y8vp5n1s75/node_modules/react
+/workspace/app-d2y8vp5n1s75/node_modules/expo
+/workspace/app-d2y8vp5n1s75/node_modules/expo-constants
+/workspace/app-d2y8vp5n1s75/node_modules/react-native-reanimated
+/workspace/app-d2y8vp5n1s75/node_modules/expo-font
+/workspace/app-d2y8vp5n1s75/node_modules/tailwind-merge
+/workspace/app-d2y8vp5n1s75/node_modules/oxlint
+/workspace/app-d2y8vp5n1s75/node_modules/react-native-svg
+/workspace/app-d2y8vp5n1s75/node_modules/@types
+/workspace/app-d2y8vp5n1s75/node_modules/@sentry
+/workspace/app-d2y8vp5n1s75/node_modules/tailwindcss-animate
+/workspace/app-d2y8vp5n1s75/node_modules/tailwindcss
+/workspace/app-d2y8vp5n1s75/node_modules/typescript
+/workspace/app-d2y8vp5n1s75/node_modules/@supabase
+/workspace/app-d2y8vp5n1s75/nativewind-env.d.ts
+/workspace/app-d2y8vp5n1s75/package.json
+/workspace/app-d2y8vp5n1s75/tsconfig.json
+/workspace/app-d2y8vp5n1s75/patches
+/workspace/app-d2y8vp5n1s75/patches/expo@55.0.6.patch
+/workspace/app-d2y8vp5n1s75/patches/@shopify__react-native-skia@2.4.18.patch
+/workspace/app-d2y8vp5n1s75/tasks
+/workspace/app-d2y8vp5n1s75/pnpm-workspace.yaml
+/workspace/app-d2y8vp5n1s75/biome.json
+/workspace/app-d2y8vp5n1s75/babel.config.js
+/workspace/app-d2y8vp5n1s75/docs
+/workspace/app-d2y8vp5n1s75/docs/prd.md
+/workspace/app-d2y8vp5n1s75/src
+/workspace/app-d2y8vp5n1s75/src/ctx.tsx
+/workspace/app-d2y8vp5n1s75/src/app
+/workspace/app-d2y8vp5n1s75/src/components
+/workspace/app-d2y8vp5n1s75/src/lib
+/workspace/app-d2y8vp5n1s75/src/client
+/workspace/app-d2y8vp5n1s75/src/global.css
+/workspace/app-d2y8vp5n1s75/tailwind.config.js
+/workspace/app-d2y8vp5n1s75/metro.config.js
+/workspace/app-d2y8vp5n1s75/supabase
+/workspace/app-d2y8vp5n1s75/supabase/migrations
+/workspace/app-d2y8vp5n1s75/components.json
+
+
+</observation>
+<action>
+SkillAction(skill='supabase-server', args='', thought='', plugin_id=17261, action=<ActionType.SKILL: 'skill'>, security_risk=None)
+</action>
+<observation>
+SkillObservation(content='Base directory for this skill: /workspace/app-d2y8vp5n1s75/.skills/supabase-server\n\n# Supabase Backend\n\nApplies to all frontend stacks (Web / MiniProgram / App). Covers Supabase server-side Schema, RLS, Edge Functions, Storage, Realtime, and Auth configuration.\n\n- For **WeChat Mini-Program/Weapp**, read `references/miniprogram.md` (weapp-specific backend rules: persistence, anon RLS guard, remote-asset transfer, QR code generation).\n\n**Timezone**: Supabase runs in **UTC** by default. All `timestamptz` values are stored in UTC, `now()` returns UTC, and `pg_cron` schedules are interpreted in UTC. Convert to the user\'s local timezone in the frontend or via `AT TIME ZONE` in SQL when display/scheduling requires a specific offset.\n\n## Initial Setup\n\n- Use `supabase_init` to initialize the database or start it from a paused state\n\n## Schema Design\n\n- Minimize tables and columns; merge functionalities into single tables when possible\n- Set database-level default values for required fields\n  - Example: `owner_id uuid not null default auth.uid()`\n  - Example: `order_number text UNIQUE NOT NULL` — use a trigger bound to insert logic to auto-generate the order number\n- For multi-table relations, define them clearly to avoid missing link fields\n- ENUM values require explicit casts\n- **NEVER interact with `supabase/migrations/` directory** (including ls, cat, view)\n- Always apply changes through incremental migrations\n- Verify database state by querying table structure using `supabase_execute_sql`\n- Try to combine tasks and execute all SQL in a single run\n- Always consider performance and speed optimization\n- Disallow SQL statements with silent or ambiguous success semantics (e.g., `IF NOT EXISTS`, `IF EXISTS`) — all operations must fail explicitly when schema or data deviates from expectations\n\n## Data Insertion\n\n**Must-Add:**\n- System-required data (e.g., categories, form dropdown options)\n- **For image URLs**: Use `image_search` to get real URLs — **NEVER** use placeholder URLs like `https://placeholder-image.jpg`\n- Add initial seed data (INSERT INTO) in the migration SQL, using `image_search` for real image URLs\n\n**Allowed:**\n- Homepage display data (e.g., showcases, course previews, products)\n- Demo data (e.g., sample exam sets)\n\n**Forbidden:**\n- User data\n- User activity history (e.g., lottery, orders)\n- Real personal names or any privacy-related info\n\n## SQL Modification\n\n- If you have full context in memory, prioritize using it directly\n- If unsure about current data structure, query it first; do not rely on migration files\n- Under no circumstances should you view or modify migration files\n- If frontend requires a feature without a corresponding table, policy, or edge function, you may add it afterward\n- When modifying business data (non-DDL, policy, RPC, etc.), use `supabase_execute_sql`\n- Before writing api.ts, read the corresponding `supabase/migrations/*.sql` to confirm NOT NULL constraints for every column — context compression may lose field details; migrations are the ground truth\n\n## Security Policies (RLS)\n\n### Design Principles\n\n- **Every table MUST have RLS enabled** — no exceptions, regardless of whether login auth exists\n- **Full coverage per table**: Explicitly define policies for every combination of SELECT/INSERT/UPDATE/DELETE × {anon, authenticated, admin}. **Never leave any blank** — missing policies silently return empty data or 0 affected rows\n  - Per-table review checklist: anon × {S/I/U/D}, authenticated × {S/I/U/D}, admin × {S/I/U/D}\n  - Anticipate future features: add corresponding constraints now for role×operation combinations that may be needed later\n- **INSERT always requires a matching SELECT**: Any role granted INSERT permission MUST also have a SELECT policy defined\n  - Example: If a policy "allows anyone to submit", add one so "submitters can view their own submissions"\n- Frontend and backend permissions must be aligned\n  - No permission, no interaction\n  - All submit-capable forms must have explicit, role-based permissions\n- PostgREST silently returns 0 affected rows (no error) when UPDATE/DELETE does not match RLS — writes appear to succeed but nothing changed. Tables the frontend needs to mutate must have explicit UPDATE/DELETE policies defined\n- Clear role boundaries\n  - Admins must have full read/write access\n  - Roles must have complete and secure permissions defined for every possible interaction scenario\n- All internal checks must use `SECURITY DEFINER`\n\n### Implementation Notes\n\n- RLS should only depend on **static columns or secure functions**\n- **Policy self-loop**: A policy\'s USING clause must not query the same table it protects — use a `SECURITY DEFINER` helper function instead (it bypasses RLS when querying the table)\n- Use public views to expose read-only access to selected fields of high-privilege tables\n- **The column checked by `auth.uid()` MUST auto-fill**: For each INSERT policy whose WITH CHECK contains `<col> = auth.uid()`, that exact `<col>` MUST be declared `NOT NULL DEFAULT auth.uid()`. The client never sends it. Apply this to that one column only — never blanket-default other uuid/FK columns (e.g. `assigned_to`), which would be a bug.\n  - ❌ `owner_id uuid NOT NULL` + client `.insert(payload)` → owner is NULL → "new row violates row-level security policy"\n  - ✅ `owner_id uuid NOT NULL DEFAULT auth.uid()`\n\n## Storage Buckets\n\n- Create for image/file uploads only\n- **CRITICAL**: NEVER store images/videos as Base64 in database\n- ALL image/video assets MUST be uploaded to Supabase Storage\n- When third-party APIs return image/video URLs, transfer to Storage in Edge Function\n- buckets must be created in migration SQL via `supabase_apply_migration` — **do not** create them dynamically inside Edge Functions\n- Frontend validation: 1MB limit, snake_case filenames\n\n\n## Edge Functions\n\n### When to Use\n\n- **MANDATORY for third-party API calls**: ALL external API integrations (payment, weather, maps, etc.) MUST be implemented through Edge Functions\n- **STRICTLY FORBIDDEN**: Direct third-party API calls from client-side code (fetch/axios in frontend components)\n- Server-side secrets and service-role operations\n- Sensitive payment logic requiring secure environment\n\n### Authoring\n\n- Create files under `supabase/functions/<function_name>/`\n- **CRITICAL**: Use `supabase_deploy_edge_function` to deploy after modifying or creating Edge Function files\n- Put cross-domain content in the `_shared/` directory\n- No URL imports — only npm and JSR\n- Do not add secrets unless explicitly required by API documentation\n- Handle CORS properly\n- `supabase.sql` forbidden in Edge Functions\n- `supabase.raw` forbidden in Edge Functions — use `.rpc()` for atomic operations\n- Response Content-Type must be chosen only from: `[\'application/json\', \'application/octet-stream\', \'text/event-stream\', \'multipart/form-data\']`\n- Make proper use of optimistic locking to ensure that subsequent settlement operations in the state flow are executed only once, even if called multiple times\n\n\n## Supabase Auth\n\n- Your knowledge may be outdated. **MUST** call `skill_action(skill="login")` to refresh with the latest information\n- Any form of third-party login (OAuth or SSO) must use the login skill as the knowledge basis\n\n## Scheduled Tasks\n\nWhenever the app needs work to run **on a time schedule** or **automatically after a condition is met** (with no user action driving it), use a scheduled task. Typical cases:\n\n- **Scheduled notifications** — daily reminders, expiry/renewal alerts, fixed-time push\n- **Scheduled refresh** — refresh cached aggregates, sync external data, recompute rankings periodically\n- **Scheduled data analysis** — nightly report generation, periodic statistics roll-ups\n- **Conditional triggers** — "after condition X, do Y", e.g. *when traffic > 100, send a notification*; *when stock < threshold, alert*; *when an order is unpaid for 30 min, cancel it*\n\n**All of the above MUST use the official `pg_cron` pattern** — a `pg_cron` job periodically runs a database function that scans for due/matching rows and updates their state; for third-party side effects (push, email, external APIs) the job invokes an Edge Function via `pg_net`. The database only queries and updates state; notification/third-party logic stays in the Edge Function. Do **NOT** drive such work from frontend timers or rely on a user opening a page.\n\n**Timezone**: `pg_cron` schedules run in **UTC**. Compute the UTC cron expression from the intended local time (e.g. 9:00 in UTC+8 → `0 1 * * *`).\n\nWhen building any scheduled task, read `references/scheduled-tasks.md`.\n\n## Supabase Realtime (low-frequency feature)\n\nWhen realtime capability is genuinely needed, read `references/realtime.md` — it covers server-side publication switches, per-stack client subscription patterns, and RN/weapp limitations.\n\n**Multi-identity scenarios**: Identity selection / role assignment logic **must NOT** be placed on the frontend — it **MUST** be encapsulated in an Edge Function.', observation=<ObservationType.SKILL: 'skill'>, skill='supabase-server', success=True, data={'object_storage_path': 'skill-online:prod/miaoda_skills/prompts/system/supabase-server/'})
+</observation>
+<action>
+FileReadAction(path='/workspace/app-d2y8vp5n1s75/src/app', start=0, end=-1, thought='', action=<ActionType.READ: 'read'>, security_risk=None, impl_source=<FileReadSource.OH_ACI: 'oh_aci'>, view_range=None, user_hidden=False)
+</action>
+<observation>
+[Read from /workspace/app-d2y8vp5n1s75/src/app is successful.]
+Here's the files and directories up to 2 levels deep in /workspace/app-d2y8vp5n1s75/src/app, excluding hidden:
+/workspace/app-d2y8vp5n1s75/src/app
+/workspace/app-d2y8vp5n1s75/src/app/index.tsx
+/workspace/app-d2y8vp5n1s75/src/app/(auth)
+/workspace/app-d2y8vp5n1s75/src/app/(auth)/sign-in.tsx
+/workspace/app-d2y8vp5n1s75/src/app/(auth)/_layout.tsx
+/workspace/app-d2y8vp5n1s75/src/app/_layout.tsx
+/workspace/app-d2y8vp5n1s75/src/app/(app)
+/workspace/app-d2y8vp5n1s75/src/app/(app)/home.tsx
+/workspace/app-d2y8vp5n1s75/src/app/(app)/_layout.tsx
+
+
+</observation>
+<action>
+FileReadAction(path='/workspace/app-d2y8vp5n1s75/src/global.css', start=0, end=-1, thought='', action=<ActionType.READ: 'read'>, security_risk=None, impl_source=<FileReadSource.OH_ACI: 'oh_aci'>, view_range=None, user_hidden=False)
+</action>
+<observation>
+[Read from /workspace/app-d2y8vp5n1s75/src/global.css is successful.]
+Here's the result of running `cat -n` on the file: /workspace/app-d2y8vp5n1s75/src/global.css:
+     1 @tailwind base;
+     2 @tailwind components;
+     3 @tailwind utilities;
+     4 
+     5 @layer base {
+     6   :root {
+     7     --background: 0 0% 100%;
+     8     --foreground: 0 0% 3.9%;
+     9     --card: 0 0% 100%;
+    10     --card-foreground: 0 0% 3.9%;
+    11     --popover: 0 0% 100%;
+    12     --popover-foreground: 0 0% 3.9%;
+    13     --primary: 0 0% 9%;
+    14     --primary-foreground: 0 0% 98%;
+    15     --secondary: 0 0% 96.1%;
+    16     --secondary-foreground: 0 0% 9%;
+    17     --muted: 0 0% 96.1%;
+    18     --muted-foreground: 0 0% 45.1%;
+    19     --accent: 0 0% 96.1%;
+    20     --accent-foreground: 0 0% 9%;
+    21     --destructive: 0 84.2% 60.2%;
+    22     --destructive-foreground: 0 0% 98%;
+    23     --border: 0 0% 89.8%;
+    24     --input: 0 0% 89.8%;
+    25     --ring: 0 0% 3.9%;
+    26     --radius: 0.5rem;
+    27   }
+    28 
+    29   .dark {
+    30     --background: 0 0% 3.9%;
+    31     --foreground: 0 0% 98%;
+    32     --card: 0 0% 3.9%;
+    33     --card-foreground: 0 0% 98%;
+    34     --popover: 0 0% 3.9%;
+    35     --popover-foreground: 0 0% 98%;
+    36     --primary: 0 0% 98%;
+    37     --primary-foreground: 0 0% 9%;
+    38     --secondary: 0 0% 14.9%;
+    39     --secondary-foreground: 0 0% 98%;
+    40     --muted: 0 0% 14.9%;
+    41     --muted-foreground: 0 0% 63.9%;
+    42     --accent: 0 0% 14.9%;
+    43     --accent-foreground: 0 0% 98%;
+    44     --destructive: 0 84.2% 60.2%;
+    45     --destructive-foreground: 0 0% 98%;
+    46     --border: 0 0% 14.9%;
+    47     --input: 0 0% 14.9%;
+    48     --ring: 0 0% 83.1%;
+    49   }
+    50 }
+    51 
+
+
+</observation>
+<action>
+FileReadAction(path='/workspace/app-d2y8vp5n1s75/app.json', start=0, end=-1, thought='', action=<ActionType.READ: 'read'>, security_risk=None, impl_source=<FileReadSource.OH_ACI: 'oh_aci'>, view_range=None, user_hidden=False)
+</action>
+<observation>
+[Read from /workspace/app-d2y8vp5n1s75/app.json is successful.]
+Here's the result of running `cat -n` on the file: /workspace/app-d2y8vp5n1s75/app.json:
+     1 {
+     2   "expo": {
+     3     "name": "expo-template",
+     4     "slug": "expo-template",
+     5     "version": "1.0.0",
+     6     "orientation": "portrait",
+     7     "icon": "./assets/icon.png",
+     8     "userInterfaceStyle": "light",
+     9     "ios": {
+    10       "supportsTablet": true,
+    11       "buildNumber": "1",
+    12       "bundleIdentifier": "com.miaoda.appd2y8vp5n1s75"
+    13     },
+    14     "android": {
+    15       "adaptiveIcon": {
+    16         "foregroundImage": "./assets/adaptive-icon.png",
+    17         "backgroundColor": "#ffffff"
+    18       },
+    19       "predictiveBackGestureEnabled": false,
+    20       "versionCode": 1,
+    21       "package": "com.miaoda.appd2y8vp5n1s75"
+    22     },
+    23     "web": {
+    24       "bundler": "metro",
+    25       "favicon": "./assets/favicon.png"
+    26     },
+    27     "plugins": [
+    28       "expo-router",
+    29       "expo-asset",
+    30       "expo-sqlite",
+    31       "expo-font",
+    32       "expo-system-ui"
+    33     ],
+    34     "router": {
+    35       "root": "src"
+    36     },
+    37     "experiments": {
+    38       "typedRoutes": true
+    39     },
+    40     "scheme": "appd2y8vp5n1s75"
+    41   }
+    42 }
+
+
+</observation>
+<action>
+FileReadAction(path='/workspace/app-d2y8vp5n1s75/src/app/_layout.tsx', start=0, end=-1, thought='', action=<ActionType.READ: 'read'>, security_risk=None, impl_source=<FileReadSource.OH_ACI: 'oh_aci'>, view_range=None, user_hidden=False)
+</action>
+<observation>
+[Read from /workspace/app-d2y8vp5n1s75/src/app/_layout.tsx is successful.]
+Here's the result of running `cat -n` on the file: /workspace/app-d2y8vp5n1s75/src/app/_layout.tsx:
+     1 import * as Sentry from '@sentry/react-native';
+     2 import { Stack } from 'expo-router';
+     3 import { PortalHost } from '@rn-primitives/portal';
+     4 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+     5 
+     6 import { SessionProvider, useSession } from '@/ctx';
+     7 import "../global.css";
+     8 
+     9 Sentry.init({
+    10   dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
+    11 });
+    12 
+    13 function RootLayoutNav() {
+    14   const { session, isLoading } = useSession();
+    15 
+    16   if (isLoading) return null;
+    17 
+    18   return (
+    19     <Stack screenOptions={{ headerShown: false }}>
+    20       {/* 公开路由：无需登录即可访问 */}
+    21       <Stack.Protected guard={!session}>
+    22         <Stack.Screen name="index" />
+    23         <Stack.Screen name="(auth)" />
+    24       </Stack.Protected>
+    25       {/* 受保护路由：guard=false 时路由从路由表移除，自动回落至最近可用路由 */}
+    26       <Stack.Protected guard={!!session}>
+    27         <Stack.Screen name="(app)" />
+    28       </Stack.Protected>
+    29     </Stack>
+    30   );
+    31 }
+    32 
+    33 const RootLayout: React.FC = () => {
+    34   return (
+    35     <GestureHandlerRootView style={{ flex: 1 }}>
+    36       <SessionProvider>
+    37         <RootLayoutNav />
+    38         <PortalHost />
+    39       </SessionProvider>
+    40     </GestureHandlerRootView>
+    41   );
+    42 };
+    43 
+    44 export default Sentry.wrap(RootLayout);
+    45 
+
+
+</observation>
+<action>
+FileReadAction(path='/workspace/app-d2y8vp5n1s75/src/app/(app)/_layout.tsx', start=0, end=-1, thought='', action=<ActionType.READ: 'read'>, security_risk=None, impl_source=<FileReadSource.OH_ACI: 'oh_aci'>, view_range=None, user_hidden=False)
+</action>
+<observation>
+[Read from /workspace/app-d2y8vp5n1s75/src/app/(app)/_layout.tsx is successful.]
+Here's the result of running `cat -n` on the file: /workspace/app-d2y8vp5n1s75/src/app/(app)/_layout.tsx:
+     1 import { Stack } from 'expo-router';
+     2 
+     3 export default function AppLayout() {
+     4   return <Stack screenOptions={{ headerShown: false }} />;
+     5 }
+     6 
+
+
+</observation>
+<action>
+FileReadAction(path='/workspace/app-d2y8vp5n1s75/src/app/index.tsx', start=0, end=-1, thought='', action=<ActionType.READ: 'read'>, security_risk=None, impl_source=<FileReadSource.OH_ACI: 'oh_aci'>, view_range=None, user_hidden=False)
+</action>
+<observation>
+[Read from /workspace/app-d2y8vp5n1s75/src/app/index.tsx is successful.]
+Here's the result of running `cat -n` on the file: /workspace/app-d2y8vp5n1s75/src/app/index.tsx:
+     1 import { Text, View } from 'react-native';
+     2 
+     3 export default function HomeScreen() {
+     4   return (
+     5     <View className="flex-1 items-center justify-center bg-white">
+     6       <Text className="text-base text-gray-800">Open up app/index.tsx to start working on your app!</Text>
+     7     </View>
+     8   );
+     9 }
+    10 
+
+
+</observation>
+<action>
+FileReadAction(path='/workspace/app-d2y8vp5n1s75/src/components', start=0, end=-1, thought='', action=<ActionType.READ: 'read'>, security_risk=None, impl_source=<FileReadSource.OH_ACI: 'oh_aci'>, view_range=None, user_hidden=False)
+</action>
+<observation>
+[Read from /workspace/app-d2y8vp5n1s75/src/components is successful.]
+Here's the files and directories up to 2 levels deep in /workspace/app-d2y8vp5n1s75/src/components, excluding hidden:
+/workspace/app-d2y8vp5n1s75/src/components
+/workspace/app-d2y8vp5n1s75/src/components/ui
+/workspace/app-d2y8vp5n1s75/src/components/ui/avatar.tsx
+/workspace/app-d2y8vp5n1s75/src/components/ui/toggle-group.tsx
+/workspace/app-d2y8vp5n1s75/src/components/ui/switch.tsx
+/workspace/app-d2y8vp5n1s75/src/components/ui/separator.tsx
+/workspace/app-d2y8vp5n1s75/src/components/ui/textarea.tsx
+/workspace/app-d2y8vp5n1s75/src/components/ui/alert-dialog.tsx
+/workspace/app-d2y8vp5n1s75/src/components/ui/accordion.tsx
+/workspace/app-d2y8vp5n1s75/src/components/ui/button.tsx
+/workspace/app-d2y8vp5n1s75/src/components/ui/menubar.tsx
+/workspace/app-d2y8vp5n1s75/src/components/ui/hover-card.tsx
+/workspace/app-d2y8vp5n1s75/src/components/ui/text.tsx
+/workspace/app-d2y8vp5n1s75/src/components/ui/select.tsx
+/workspace/app-d2y8vp5n1s75/src/components/ui/context-menu.tsx
+/workspace/app-d2y8vp5n1s75/src/components/ui/checkbox.tsx
+/workspace/app-d2y8vp5n1s75/src/components/ui/badge.tsx
+/workspace/app-d2y8vp5n1s75/src/components/ui/toggle.tsx
+/workspace/app-d2y8vp5n1s75/src/components/ui/native-only-animated-view.tsx
+/workspace/app-d2y8vp5n1s75/src/components/ui/icon.tsx
+/workspace/app-d2y8vp5n1s75/src/components/ui/aspect-ratio.tsx
+/workspace/app-d2y8vp5n1s75/src/components/ui/radio-group.tsx
+/workspace/app-d2y8vp5n1s75/src/components/ui/alert.tsx
+/workspace/app-d2y8vp5n1s75/src/components/ui/tooltip.tsx
+/workspace/app-d2y8vp5n1s75/src/components/ui/dialog.tsx
+/workspace/app-d2y8vp5n1s75/src/components/ui/input.tsx
+/workspace/app-d2y8vp5n1s75/src/components/ui/tabs.tsx
+/workspace/app-d2y8vp5n1s75/src/components/ui/dropdown-menu.tsx
+/workspace/app-d2y8vp5n1s75/src/components/ui/progress.tsx
+/workspace/app-d2y8vp5n1s75/src/components/ui/label.tsx
+/workspace/app-d2y8vp5n1s75/src/components/ui/popover.tsx
+/workspace/app-d2y8vp5n1s75/src/components/ui/collapsible.tsx
+/workspace/app-d2y8vp5n1s75/src/components/ui/card.tsx
+/workspace/app-d2y8vp5n1s75/src/components/ui/skeleton.tsx
+
+
+</observation>
+<action>
+FileReadAction(path='/workspace/app-d2y8vp5n1s75/package.json', start=0, end=-1, thought='', action=<ActionType.READ: 'read'>, security_risk=None, impl_source=<FileReadSource.OH_ACI: 'oh_aci'>, view_range=None, user_hidden=False)
+</action>
+<observation>
+[Read from /workspace/app-d2y8vp5n1s75/package.json is successful.]
+Here's the result of running `cat -n` on the file: /workspace/app-d2y8vp5n1s75/package.json:
+     1 {
+     2   "name": "expo-template",
+     3   "version": "1.0.0",
+     4   "main": "expo-router/entry",
+     5   "scripts": {
+     6     "start": "expo start",
+     7     "android": "expo start --android",
+     8     "ios": "expo start --ios",
+     9     "web": "expo start --web",
+    10     "lint": "devkit-lint"
+    11   },
+    12   "dependencies": {
+    13     "@react-navigation/native": "^7.1.33",
+    14     "@rn-primitives/accordion": "^1.4.0",
+    15     "@rn-primitives/alert-dialog": "^1.4.0",
+    16     "@rn-primitives/aspect-ratio": "^1.4.0",
+    17     "@rn-primitives/avatar": "^1.4.0",
+    18     "@rn-primitives/checkbox": "^1.4.0",
+    19     "@rn-primitives/collapsible": "^1.4.0",
+    20     "@rn-primitives/context-menu": "^1.4.0",
+    21     "@rn-primitives/dialog": "^1.4.0",
+    22     "@rn-primitives/dropdown-menu": "^1.4.0",
+    23     "@rn-primitives/hover-card": "^1.4.0",
+    24     "@rn-primitives/label": "^1.4.0",
+    25     "@rn-primitives/menubar": "^1.4.0",
+    26     "@rn-primitives/popover": "^1.4.0",
+    27     "@rn-primitives/portal": "^1.4.0",
+    28     "@rn-primitives/progress": "^1.4.0",
+    29     "@rn-primitives/radio-group": "^1.4.0",
+    30     "@rn-primitives/select": "^1.4.0",
+    31     "@rn-primitives/separator": "^1.4.0",
+    32     "@rn-primitives/slot": "^1.4.0",
+    33     "@rn-primitives/switch": "^1.4.0",
+    34     "@rn-primitives/tabs": "^1.4.0",
+    35     "@rn-primitives/toggle": "^1.4.0",
+    36     "@rn-primitives/toggle-group": "^1.4.0",
+    37     "@rn-primitives/tooltip": "^1.4.0",
+    38     "@sentry/react-native": "8.9.2",
+    39     "@supabase/supabase-js": "2.103.1",
+    40     "class-variance-authority": "^0.7.1",
+    41     "clsx": "^2.1.1",
+    42     "expo": "55.0.6",
+    43     "expo-asset": "~55.0.8",
+    44     "expo-constants": "~55.0.7",
+    45     "expo-font": "~55.0.4",
+    46     "expo-linking": "~55.0.7",
+    47     "expo-router": "55.0.5",
+    48     "expo-sqlite": "~55.0.10",
+    49     "expo-status-bar": "~55.0.4",
+    50     "expo-system-ui": "~55.0.9",
+    51     "lucide-react-native": "^1.11.0",
+    52     "miaoda-expo-devkit": "0.1.1-beta.94",
+    53     "nativewind": "^4.2.3",
+    54     "react": "19.2.0",
+    55     "react-dom": "19.2.0",
+    56     "react-native": "0.83.2",
+    57     "react-native-css-interop": "^0.2.3",
+    58     "react-native-gesture-handler": "~2.30.0",
+    59     "react-native-reanimated": "4.2.1",
+    60     "react-native-safe-area-context": "~5.6.2",
+    61     "react-native-screens": "~4.23.0",
+    62     "react-native-svg": "15.15.3",
+    63     "react-native-web": "~0.21.0",
+    64     "react-native-worklets": "0.7.2",
+    65     "tailwind-merge": "^3.5.0",
+    66     "tailwindcss-animate": "^1.0.7"
+    67   },
+    68   "devDependencies": {
+    69     "@biomejs/biome": "2.4.5",
+    70     "@expo/metro-runtime": "55.0.11",
+    71     "@types/react": "~19.2.14",
+    72     "babel-preset-expo": "55.0.6",
+    73     "eslint-plugin-expo": "^1.0.0",
+    74     "oxlint": "^1.60.0",
+    75     "prettier-plugin-tailwindcss": "^0.5.11",
+    76     "tailwindcss": "^3.4.17",
+    77     "typescript": "~5.9.2"
+    78   },
+    79   "private": true
+    80 }
+    81 
+
+
+</observation>
+<action>
+FileReadAction(path='/workspace/app-d2y8vp5n1s75/.skills/mobile-app/references/navigation.md', start=0, end=-1, thought='', action=<ActionType.READ: 'read'>, security_risk=None, impl_source=<FileReadSource.OH_ACI: 'oh_aci'>, view_range=None, user_hidden=False)
+</action>
+<observation>
+[Read from /workspace/app-d2y8vp5n1s75/.skills/mobile-app/references/navigation.md is successful.]
+Here's the result of running `cat -n` on the file: /workspace/app-d2y8vp5n1s75/.skills/mobile-app/references/navigation.md:
+     1 # Navigation Reference
+     2 
+     3 ## Stack-wrapping-Tabs Architecture
+     4 
+     5 Directory structure:
+     6 ```
+     7 src/app/(app)/
+     8   _layout.tsx        ← Stack (keep as Stack, from boilerplate)
+     9   (tabs)/
+    10     _layout.tsx      ← Tabs (ONLY visible tab screens here)
+    11     home.tsx         ← Home tab (NOT index.tsx — avoids URL collision with root index.tsx)
+    12     tasks.tsx        ← Tasks tab
+    13   tasks/
+    14     _layout.tsx      ← Stack (REQUIRED for subdirectories with dynamic routes)
+    15     [id].tsx         ← Detail page (pushed onto Stack above Tabs)
+    16     create.tsx
+    17   settings.tsx       ← Non-tab page (pushed onto Stack)
+    18 ```
+    19 
+    20 `(app)/_layout.tsx`:
+    21 ```tsx
+    22 import { Stack } from "expo-router";
+    23 
+    24 export default function AppLayout() {
+    25   return (
+    26     <Stack screenOptions={{ headerShown: false }}>
+    27       <Stack.Screen name="(tabs)" />
+    28     </Stack>
+    29   );
+    30 }
+    31 ```
+    32 
+    33 `(app)/(tabs)/_layout.tsx`:
+    34 ```tsx
+    35 import { Tabs } from "expo-router";
+    36 import { Home, List } from "lucide-react-native";
+    37 import { useSafeAreaInsets } from "react-native-safe-area-context";
+    38 
+    39 export default function TabsLayout() {
+    40   const insets = useSafeAreaInsets();
+    41   return (
+    42     <Tabs
+    43       screenOptions={{
+    44         tabBarActiveTintColor: "#007AFF",
+    45         tabBarStyle: {
+    46           height: 68 + insets.bottom,
+    47           paddingBottom: insets.bottom,
+    48         },
+    49       }}
+    50       initialRouteName="home"
+    51     >
+    52       <Tabs.Screen name="home" options={{ title: "Home", tabBarIcon: ({ color, size }) => <Home size={size} color={color} /> }} />
+    53       <Tabs.Screen name="tasks" options={{ title: "Tasks", tabBarIcon: ({ color, size }) => <List size={size} color={color} /> }} />
+    54     </Tabs>
+    55   );
+    56 }
+    57 ```
+    58 
+    59 Navigating from tab to detail page:
+    60 ```tsx
+    61 router.push(`/(app)/tasks/${id}`);
+    62 ```
+    63 
+    64 ## Entry Point
+    65 
+    66 `src/app/index.tsx` is the landing page component in the boilerplate. When the app uses auth routing (Stack.Protected), do NOT replace it with a Redirect — it serves as the unauthenticated screen.
+    67 
+    68 ## No-Auth Setup
+    69 
+    70 When the app does NOT require login, simplify the boilerplate:
+    71 
+    72 1. Simplify root `_layout.tsx` (remove SessionProvider + Stack.Protected, keep Sentry.init if present):
+    73 ```tsx
+    74 import { Stack } from "expo-router";
+    75 import { PortalHost } from "@rn-primitives/portal";
+    76 import { GestureHandlerRootView } from "react-native-gesture-handler";
+    77 import "../global.css";
+    78 
+    79 export default function RootLayout() {
+    80   return (
+    81     <GestureHandlerRootView style={{ flex: 1 }}>
+    82       <Stack screenOptions={{ headerShown: false }}>
+    83         <Stack.Screen name="(tabs)" />
+    84       </Stack>
+    85       <PortalHost />
+    86     </GestureHandlerRootView>
+    87   );
+    88 }
+    89 ```
+    90 
+    91 2. Delete `(auth)/` directory and `src/ctx.tsx`
+    92 
+    93 3. Use `index.tsx` as home page directly (no tabs) or redirect to `/home` (with tabs):
+    94 ```tsx
+    95 import { Redirect } from "expo-router";
+    96 
+    97 export default function Index() {
+    98   return <Redirect href="/home" />;
+    99 }
+   100 ```
+   101 
+   102 4. No-auth directory structure with tabs:
+   103 ```
+   104 src/app/
+   105   _layout.tsx        ← Stack (simplified, no auth)
+   106   index.tsx          ← <Redirect href="/home" /> or home content directly
+   107   (tabs)/
+   108     _layout.tsx      ← Tabs (initialRouteName="home")
+   109     home.tsx         ← Home tab
+   110     explore.tsx
+   111   details/
+   112     _layout.tsx      ← Stack
+   113     [id].tsx         ← Detail page
+   114 ```
+   115 
+   116 ## Dynamic Routes
+   117 
+   118 ```
+   119 src/app/(app)/tasks/
+   120   [id]/
+   121     _layout.tsx  ← Stack
+   122     index.tsx    ← Single item detail (NOT [id].tsx at parent level)
+   123     edit.tsx     ← sibling sub-page
+   124 ```
+   125 NEVER place `[id].tsx` and a `[id]/` directory at the same level — duplicate Screen, runtime crash. Use `[id]/index.tsx` for the detail page.
+   126 
+   127 Access params:
+   128 ```tsx
+   129 const { id } = useLocalSearchParams<{ id: string }>();
+   130 ```
+   131 
+   132 ## useFocusEffect — Data Refresh on Navigation Return
+   133 
+   134 ```tsx
+   135 useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
+   136 ```
+   137 
+   138 Full example with Supabase:
+   139 ```tsx
+   140 export default function TasksScreen() {
+   141   const [tasks, setTasks] = useState([]);
+   142   const loadTasks = async () => { const { data } = await supabase.from("tasks").select("*"); setTasks(data ?? []); };
+   143   useFocusEffect(useCallback(() => { loadTasks(); }, [loadTasks]));
+   144 }
+   145 ```
+   146 
+   147 ## Page Navigation
+   148 
+   149 ```tsx
+   150 <Link href="/profile/settings"><Text>Go to Settings</Text></Link>
+   151 
+   152 const router = useRouter();
+   153 router.push("/profile/settings");
+   154 router.replace("/");   // removes current screen from back-stack
+   155 router.back();
+   156 ```
+   157 
+   158 NEVER call `router.push` / `router.back` / `router.replace` imperatively during first render or in a mount `useEffect` — the Root Layout isn't mounted yet, so on a Web refresh of a sub-route this leaves a blank/white screen. For "no data → leave this screen", render a declarative `<Redirect href=... />` instead:
+   159 
+   160 ```tsx
+   161 if (!item) return <Redirect href={"/(app)/tasks" as RelativePathString} />;
+   162 ```
+   163 
+   164 ## Modal & Form Sheet
+   165 
+   166 ```tsx
+   167 <Stack.Screen name="modal" options={{ presentation: "modal" }} />
+   168 <Stack.Screen name="sheet" options={{ presentation: "formSheet", sheetGrabberVisible: true, sheetAllowedDetents: [0.5, 1.0] }} />
+   169 ```
+
+
+</observation>
+<action>
+FileReadAction(path='/workspace/app-d2y8vp5n1s75/.skills/mobile-app/references/packages.md', start=0, end=-1, thought='', action=<ActionType.READ: 'read'>, security_risk=None, impl_source=<FileReadSource.OH_ACI: 'oh_aci'>, view_range=None, user_hidden=False)
+</action>
+<observation>
+[Read from /workspace/app-d2y8vp5n1s75/.skills/mobile-app/references/packages.md is successful.]
+Here's the result of running `cat -n` on the file: /workspace/app-d2y8vp5n1s75/.skills/mobile-app/references/packages.md:
+     1 # Packages Reference
+     2 
+     3 ## On-Demand Packages (install with `pnpm exec expo install <package>`)
+     4 
+     5 ### Media
+     6 
+     7 | Package | Purpose |
+     8 |---------|---------|
+     9 | `expo-image` | High-performance image display with caching, lazy loading, placeholder |
+    10 | `expo-image-picker` | Photo library / camera capture |
+    11 | `expo-image-manipulator` | Image compression / resize / crop |
+    12 | `expo-camera` | Camera preview / barcode scanning |
+    13 | `expo-media-library` | Media library access (save photos, list assets) |
+    14 | `expo-audio` | Audio playback and recording |
+    15 | `expo-video` | Video playback (`expo-av` replacement) |
+    16 
+    17 ### Device Capabilities
+    18 
+    19 | Package | Purpose |
+    20 |---------|---------|
+    21 | `expo-location` | Geolocation |
+    22 | `expo-haptics` | Haptic feedback (iOS; Android Chrome on Web only) |
+    23 | `expo-clipboard` | Clipboard read/write |
+    24 | `expo-device` | Device info (model, OS version) |
+    25 | `expo-network` | Network state (connected, type) |
+    26 | `expo-screen-orientation` | Screen orientation lock/unlock |
+    27 | `expo-splash-screen` | Custom splash screen hold during async init |
+    28 | `expo-sensors` | Motion sensors — Pedometer (step count), Accelerometer, Gyroscope (permission-gated) |
+    29 
+    30 ### Data & Storage
+    31 
+    32 | Package | Purpose |
+    33 |---------|---------|
+    34 | `@react-native-async-storage/async-storage` | Key-value storage (non-sensitive) |
+    35 | `expo-secure-store` | Encrypted storage for tokens and secrets |
+    36 | `expo-file-system` | File operations (download, read, write, delete) |
+    37 
+    38 ### System Integration
+    39 
+    40 | Package | Purpose |
+    41 |---------|---------|
+    42 | `expo-calendar` | Calendar access (empty stub on Web) |
+    43 | `expo-contacts` | Contacts access (empty stub on Web) |
+    44 | `expo-web-browser` | In-app browser / file preview / file download |
+    45 | `expo-auth-session` | OAuth login flows |
+    46 
+    47 ### UI Utilities
+    48 
+    49 | Package | Purpose |
+    50 |---------|---------|
+    51 | `react-native-ui-datepicker` | Cross-platform date/time picker (pure JS, works on Web) |
+    52 | `react-native-marked` | Markdown rendering |
+    53 
+    54 ### Graphics & Canvas
+    55 
+    56 | Package | Purpose |
+    57 |---------|---------|
+    58 | `expo-gl` | WebGL canvas / 3D rendering |
+    59 | `expo-three` + `three` | Three.js 3D graphics (requires `expo-gl`) |
+    60 | `@shopify/react-native-skia` | 2D canvas / path drawing / paint board |
+    61 | `react-native-view-shot` | Capture component as exportable image |
+    62 
+    63 ## Platform Compatibility Notes
+    64 
+    65 - `expo-calendar`, `expo-contacts`, `expo-media-library`, `expo-file-system` are empty stubs on Web
+    66 - `expo-haptics` works only on Android Chrome on Web; full haptics on iOS and Android native
+    67 
+    68 ## Native-only → Web Fallback Map
+    69 
+    70 The preview runs on Web. Modules below are NOT auto-handled by react-native-web/devkit and need a `process.env.EXPO_OS === "web"` branch. The native branch stays unchanged.
+    71 
+    72 | Module | Web behavior without a branch | Web fallback (inside `EXPO_OS === "web"`) |
+    73 |--------|-------------------------------|-------------------------------------------|
+    74 | `react-native-webview` | not stubbed → crashes / red screen | render an `<iframe src=...>`. NOTE: sites with `X-Frame-Options` deny embedding (blank frame is expected); cross-origin in-frame navigation is unavailable |
+    75 | `expo-media-library` (save image) | silent no-op stub (granted but saves nothing) | trigger a browser download via `<a download href={url}>` |
+    76 | RN `Share` | not stubbed → crashes | feature-detect `navigator.share`; if missing, copy to clipboard. Treat `AbortError` as user-cancel, not an error |
+    77 | `expo-secure-store` | not stubbed → throws on call | `localStorage` |
+    78 | `expo-video` autoplay | `NotAllowedError` on Web | start `muted`, or use tap-to-play |
+    79 | `react-native-view-shot` (`capture`/`captureRef`) | `capture()` calls `findNodeHandle` → throws `findNodeHandle is not supported on web` | capture the target DOM node with `html2canvas` to a data-uri, then `<a download>`. Branch the WHOLE capture chain, not just the save step |
+    80 | `@shopify/react-native-skia` (`<Canvas>`) | CanvasKit WASM not loaded → blank screen / crash | load CanvasKit first via `WithSkiaWeb` / `loadSkiaWeb()` before rendering `<Canvas>`; on save, export the Skia snapshot (`makeImageSnapshot()`), NOT the original source URI |
+
+
+</observation>
+<action>
+FileReadAction(path='/workspace/app-d2y8vp5n1s75/.skills/mobile-app/references/media.md', start=0, end=-1, thought='', action=<ActionType.READ: 'read'>, security_risk=None, impl_source=<FileReadSource.OH_ACI: 'oh_aci'>, view_range=None, user_hidden=False)
+</action>
+<observation>
+[Read from /workspace/app-d2y8vp5n1s75/.skills/mobile-app/references/media.md is successful.]
+Here's the result of running `cat -n` on the file: /workspace/app-d2y8vp5n1s75/.skills/mobile-app/references/media.md:
+     1 # Media Reference
+     2 
+     3 ## Image Display
+     4 
+     5 ```tsx
+     6 import { Image } from "expo-image";
+     7 
+     8 <Image
+     9   className="w-full h-48 rounded-xl object-cover"
+    10   source={{ uri: "https://example.com/photo.jpg" }}
+    11   placeholder={{ blurhash: "LGF5]+Yk^6#M@-5c,1J5@[or[Q6." }}
+    12   transition={200}
+    13 />
+    14 ```
+    15 
+    16 `expo-image` provides caching, lazy loading, placeholder, blur hash, animated transitions.
+    17 
+    18 ## Image Picking (Camera & Gallery)
+    19 
+    20 ```tsx
+    21 import * as ImagePicker from "expo-image-picker";
+    22 
+    23 // From camera
+    24 const takePhoto = async () => {
+    25   const result = await ImagePicker.launchCameraAsync({
+    26     allowsEditing: true,
+    27     quality: 0.8,
+    28   });
+    29   if (!result.canceled) {
+    30     return result.assets[0].uri;
+    31   }
+    32 };
+    33 
+    34 // From gallery
+    35 const pickImage = async () => {
+    36   const result = await ImagePicker.launchImageLibraryAsync({
+    37     mediaTypes: ["images"],
+    38     allowsEditing: true,
+    39     quality: 0.8,
+    40   });
+    41   if (!result.canceled) {
+    42     return result.assets[0].uri;
+    43   }
+    44 };
+    45 ```
+    46 
+    47 ## Device-Capability Permission Handling (State-Driven, no Alert.alert)
+    48 
+    49 Applies to EVERY permission-gated capability — camera, photo library, location, notifications, AND **motion sensors** (e.g. `expo-sensors` Pedometer for step counting). Declaring the plugin in `app.json` does NOT grant access: always `request…PermissionsAsync()` at runtime, drive a `denied` UI from state, and NEVER `catch` the permission error to silently degrade to `0` / empty data.
+    50 
+    51 ```tsx
+    52 const [permissionDenied, setPermissionDenied] = useState(false);
+    53 
+    54 const pickImage = async () => {
+    55   const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    56   if (status !== "granted") {
+    57     setPermissionDenied(true);
+    58     return;
+    59   }
+    60   // ... proceed with image picking
+    61 };
+    62 
+    63 {permissionDenied && (
+    64   <Text className="text-destructive text-sm mt-2">
+    65     Photo library access is required. Please enable it in Settings.
+    66   </Text>
+    67 )}
+    68 ```
+    69 
+    70 Motion sensors follow the same shape: `Pedometer.isAvailableAsync()` → `Pedometer.requestPermissionsAsync()` → subscribe/read step data → render the `denied` UI when not granted. NEVER assume the sensor is permitted just because the plugin is declared.
+    71 
+    72 ## Image Compression
+    73 
+    74 Use `expo-image-manipulator` — REQUIRED before uploading. Max upload size: 1 MB.
+    75 
+    76 ```tsx
+    77 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
+    78 
+    79 const compressImage = async (uri: string) => {
+    80   const result = await manipulateAsync(
+    81     uri,
+    82     [{ resize: { width: 1080 } }],
+    83     { compress: 0.7, format: SaveFormat.JPEG }
+    84   );
+    85   return result.uri;
+    86 };
+    87 
+    88 // Usage: compress before upload
+    89 const compressedUri = await compressImage(originalUri);
+    90 await uploadImage(compressedUri, "photos", `images/${Date.now()}.jpg`);
+    91 ```
+    92 
+    93 Recommended defaults:
+    94 - General photos: `width: 1080`, `compress: 0.7`
+    95 - Avatars/thumbnails: `width: 300`, `compress: 0.6`
+    96 
+    97 ## Image Upload to Supabase Storage
+    98 
+    99 Use `expo/fetch + ArrayBuffer` — cross-platform on iOS/Android/Web. ALWAYS pass the **compressed** uri from `compressImage` above: the output is JPEG, so `contentType: "image/jpeg"` is always correct. NEVER derive `contentType` by slicing the extension off the URI — on Web the asset is a `blob:` / `data:` URI with no usable extension, which yields an invalid MIME and a **415** rejection.
+   100 
+   101 ```tsx
+   102 import { fetch } from "expo/fetch";
+   103 
+   104 const uploadImage = async (uri: string, bucket: string, path: string) => {
+   105   const response = await fetch(uri);
+   106   const arrayBuffer = await response.arrayBuffer();
+   107   const { data, error } = await supabase.storage
+   108     .from(bucket)
+   109     .upload(path, arrayBuffer, { contentType: "image/jpeg" });
+   110   if (error) throw new Error(error.message); // never swallow — surface it
+   111   return data;
+   112 };
+   113 ```
+   114 
+   115 Bucket & path conventions:
+   116 - Bucket naming: `<APP_ID>_<BUSINESS_NAME>_images`
+   117 - Unique file paths: `images/${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`
+   118 - If no login: grant all users upload permission
+   119 - If login exists: grant authenticated users/admins upload permission
+   120 
+   121 ## Save to Photo Library
+   122 
+   123 `expo-media-library` is a silent no-op stub on Web (it reports `granted` but saves nothing). MUST branch with `process.env.EXPO_OS === "web"` and trigger a browser download instead. On native, if the URI starts with `content://`, normalize it first via `manipulateAsync` before saving.
+   124 
+   125 ```tsx
+   126 import * as FileSystem from "expo-file-system";
+   127 import * as MediaLibrary from "expo-media-library";
+   128 
+   129 const downloadToGallery = async (url: string, filename: string) => {
+   130   if (process.env.EXPO_OS === "web") {
+   131     // media-library is a no-op stub on Web — trigger a browser download
+   132     const a = document.createElement("a");
+   133     a.href = url;
+   134     a.download = filename;
+   135     a.click();
+   136     return;
+   137   }
+   138 
+   139   const { status } = await MediaLibrary.requestPermissionsAsync(false, ["photo"]);
+   140   if (status !== "granted") return;
+   141 
+   142   const localUri = FileSystem.documentDirectory + filename;
+   143   const { uri } = await FileSystem.downloadAsync(url, localUri);
+   144   const asset = await MediaLibrary.createAssetAsync(uri);
+   145   return asset;
+   146 };
+   147 ```
+   148 
+   149 ## Passing URIs Between Screens
+   150 
+   151 Use a module-level store — NEVER pass via expo-router URL params:
+   152 
+   153 ```tsx
+   154 // src/lib/imageStore.ts
+   155 let pendingUri: string | null = null;
+   156 export const setPendingUri = (uri: string) => { pendingUri = uri; };
+   157 export const consumePendingUri = () => { const uri = pendingUri; pendingUri = null; return uri; };
+   158 
+   159 // Before navigate:
+   160 setPendingUri(result.assets[0].uri);
+   161 router.push("/(app)/edit-photo");
+   162 // In target screen on mount:
+   163 const uri = consumePendingUri();
+   164 ```
+   165 
+   166 ## expo-video
+   167 
+   168 ```tsx
+   169 // NEVER auto-load on Web mount — use hasInteracted ref
+   170 const hasInteracted = useRef(process.env.EXPO_OS !== "web");
+   171 const [showOverlay, setShowOverlay] = useState(process.env.EXPO_OS === "web");
+   172 
+   173 useEffect(() => {
+   174   if (hasInteracted.current) {
+   175     player.replaceAsync({ uri: videoUrl });
+   176     player.play();
+   177   }
+   178 }, []);
+   179 
+   180 // Wrap VideoView for Tailwind styles
+   181 <View className="w-full aspect-video rounded-xl overflow-hidden">
+   182   <VideoView style={{ flex: 1 }} player={player} />
+   183   {showOverlay && (
+   184     <Pressable
+   185       style={StyleSheet.absoluteFill}
+   186       className="items-center justify-center bg-black/30"
+   187       onPress={() => {
+   188         hasInteracted.current = true;
+   189         setShowOverlay(false);
+   190         player.replaceAsync({ uri: videoUrl });
+   191         player.play();
+   192       }}
+   193     >
+   194       <Text className="text-white text-lg font-semibold">Tap to Play</Text>
+   195     </Pressable>
+   196   )}
+   197 </View>
+   198 ```
+   199 
+   200 **WHY tap-to-play / muted on Web**: browsers block audible or gesture-less autoplay — calling `play()` on Web mount throws `NotAllowedError`. On Web you MUST either start `muted` or gate playback behind a tap (as above).
+   201 
+   202 Player setup idioms:
+   203 - The `useVideoPlayer(source, setup)` setup callback runs **once**. Pass a `null` source and `replace`/`replaceAsync` later — the setup does NOT re-run on source change, so don't put per-source logic there.
+   204 - Call `play()` on the `readyToPlay`/`playerStatusChange` event, NOT inside the setup callback (the player isn't ready yet at setup time).
+   205 
+   206 Web CORS limitation: if the video URL does not return `Access-Control-Allow-Origin` header, `expo-video` fails silently on Web. Use videos hosted on CORS-enabled CDN.
+   207 
+   208 Demo/placeholder video URL (use this, never fabricate):
+   209 `https://miaoda-zhibo.bj.bcebos.com/AppVideo/%E7%A7%92%E5%93%92%E4%BA%A7%E5%93%81%E5%8A%9F%E8%83%BD%E4%BB%8B%E7%BB%8D_%E4%B8%AD%E6%96%87%E7%89%88.mp4`
+   210 
+   211 ## app.json Permission Declarations
+   212 
+   213 Permission descriptions MUST be in the user's language (Chinese for Chinese users, English for English users):
+   214 
+   215 ```json
+   216 {
+   217   "expo": {
+   218     "plugins": [
+   219       ["expo-image-picker", {
+   220         "cameraPermission": "<TRANSLATE: Allow $(PRODUCT_NAME) to access the camera to take photos>",
+   221         "photosPermission": "<TRANSLATE: Allow $(PRODUCT_NAME) to access the photo library to select images>"
+   222       }],
+   223       ["expo-camera", {
+   224         "cameraPermission": "<TRANSLATE: Allow $(PRODUCT_NAME) to use the camera>",
+   225         "microphonePermission": "<TRANSLATE: Allow $(PRODUCT_NAME) to use the microphone>",
+   226         "recordAudioAndroid": true
+   227       }],
+   228       ["expo-location", {
+   229         "locationWhenInUsePermission": "<TRANSLATE: Allow $(PRODUCT_NAME) to access your location while using the app>",
+   230         "isAndroidBackgroundLocationEnabled": false
+   231       }],
+   232       ["expo-media-library", {
+   233         "photosPermission": "<TRANSLATE: Allow $(PRODUCT_NAME) to access your photos>",
+   234         "savePhotosPermission": "<TRANSLATE: Allow $(PRODUCT_NAME) to save photos to the library>"
+   235       }],
+   236       ["expo-contacts", {
+   237         "contactsPermission": "<TRANSLATE: Allow $(PRODUCT_NAME) to access your contacts>"
+   238       }],
+   239       ["expo-calendar", {
+   240         "calendarPermission": "<TRANSLATE: Allow $(PRODUCT_NAME) to access your calendar>"
+   241       }],
+   242       ["expo-audio", {
+   243         "microphonePermission": "<TRANSLATE: Allow $(PRODUCT_NAME) to use the microphone for recording>"
+   244       }]
+   245     ]
+   246   }
+   247 }
+   248 ```
+   249 
+   250 ## Location & Haptics Usage
+   251 
+   252 ```tsx
+   253 // Location — install first: pnpm exec expo install expo-location
+   254 import * as Location from "expo-location";
+   255 
+   256 const { status } = await Location.requestForegroundPermissionsAsync();
+   257 if (status !== "granted") { /* handle denial */ return; }
+   258 const location = await Location.getCurrentPositionAsync({});
+   259 
+   260 // Haptics (iOS enhancement) — install first: pnpm exec expo install expo-haptics
+   261 import * as Haptics from "expo-haptics";
+   262 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+   263 ```
+   264 
+   265 ## Image Upload Detection & Validation
+   266 
+   267 **When to include upload subsystem**: Treat the system as requiring image upload when the user mentions "image", "picture", "photo", "avatar", "banner", "thumbnail", or "upload image/manage pictures". If any DB table contains image fields, or any feature requires uploading/editing/managing images, an upload subsystem MUST be included.
+   268 
+   269 **File validation rules**:
+   270 - Maximum upload size: **1 MB** — compress with `expo-image-manipulator` if file exceeds limit
+   271 - Supported formats: JPEG, PNG only
+   272 - File paths must contain only English letters, numbers, and hyphens
+   273 
+   274 **Upload UX requirements**:
+   275 - Provide a clear upload button
+   276 - Display upload progress indication during upload
+   277 - Notify users on upload success or failure
+   278 - If compression was applied, inform the user
+
+
+</observation>
+<action>
+FileReadAction(path='/workspace/app-d2y8vp5n1s75/.skills/mobile-app/references/components.md', start=0, end=-1, thought='', action=<ActionType.READ: 'read'>, security_risk=None, impl_source=<FileReadSource.OH_ACI: 'oh_aci'>, view_range=None, user_hidden=False)
+</action>
+<observation>
+[Read from /workspace/app-d2y8vp5n1s75/.skills/mobile-app/references/components.md is successful.]
+Here's the result of running `cat -n` on the file: /workspace/app-d2y8vp5n1s75/.skills/mobile-app/references/components.md:
+     1 # Components Reference
+     2 
+     3 ## Pull-to-Refresh
+     4 
+     5 ```tsx
+     6 const [refreshing, setRefreshing] = useState(false);
+     7 
+     8 const onRefresh = useCallback(async () => {
+     9   setRefreshing(true);
+    10   try { await loadData(); } finally { setRefreshing(false); }
+    11 }, []);
+    12 
+    13 <FlatList
+    14   data={data}
+    15   refreshing={refreshing}
+    16   onRefresh={onRefresh}
+    17   contentInsetAdjustmentBehavior="automatic"
+    18   renderItem={({ item }) => ...}
+    19 />
+    20 ```
+    21 
+    22 ## KeyboardAvoidingView
+    23 
+    24 ```tsx
+    25 <KeyboardAvoidingView behavior={process.env.EXPO_OS === "ios" ? "padding" : "height"} className="flex-1">
+    26   <ScrollView contentContainerClassName="flex-grow justify-center px-6" keyboardShouldPersistTaps="handled">
+    27     <TextInput returnKeyType="next" onSubmitEditing={() => nextRef.current?.focus()} />
+    28     <TextInput ref={nextRef} returnKeyType="done" />
+    29     <Pressable className="bg-primary rounded-xl p-4 items-center" onPress={handleSubmit}>
+    30       <Text className="text-primary-foreground font-semibold">Submit</Text>
+    31     </Pressable>
+    32   </ScrollView>
+    33 </KeyboardAvoidingView>
+    34 ```
+    35 
+    36 ## Status Bar
+    37 
+    38 ```tsx
+    39 import { StatusBar } from "expo-status-bar";
+    40 
+    41 // Light header → style="dark"; dark header → style="light"
+    42 // Android MUST also set backgroundColor to match header
+    43 <StatusBar style="dark" backgroundColor="#ffffff" />
+    44 ```
+    45 
+    46 ## Loading States
+    47 
+    48 ```tsx
+    49 if (isLoading) {
+    50   return <View className="flex-1 items-center justify-center"><ActivityIndicator size="large" className="text-primary" /></View>;
+    51 }
+    52 
+    53 // Inline (e.g., FlatList footer)
+    54 <ActivityIndicator size="small" className="text-muted-foreground my-4" />
+    55 ```
+    56 
+    57 ## Empty States
+    58 
+    59 ```tsx
+    60 const EmptyState = () => (
+    61   <View className="flex-1 items-center justify-center py-16 gap-3">
+    62     <ClipboardList size={48} className="text-muted-foreground" />
+    63     <Text className="text-lg font-semibold text-foreground">No items yet</Text>
+    64   </View>
+    65 );
+    66 
+    67 <FlatList data={items} ListEmptyComponent={<EmptyState />} ... />
+    68 ```
+    69 
+    70 ## Error Handling UX
+    71 
+    72 ```tsx
+    73 {error && (
+    74   <View className="items-center p-6 gap-3">
+    75     <Text className="text-destructive text-center">{error}</Text>
+    76     <Pressable className="bg-primary rounded-lg px-6 py-3" onPress={loadData}>
+    77       <Text className="text-primary-foreground font-medium">Retry</Text>
+    78     </Pressable>
+    79   </View>
+    80 )}
+    81 
+    82 {fieldError && <Text className="text-destructive text-sm mt-1">{fieldError}</Text>}
+    83 
+    84 {permissionDenied && (
+    85   <Text className="text-destructive text-sm mt-2">
+    86     Camera access is required. Please enable it in Settings → App → Camera.
+    87   </Text>
+    88 )}
+    89 ```
+    90 
+    91 ## Instant Touch Feedback
+    92 
+    93 ```tsx
+    94 <Pressable
+    95   className="active:opacity-70"
+    96   android_ripple={{ color: "rgba(0,0,0,0.1)" }}
+    97   onPress={handlePress}
+    98 >
+    99   <Text className="text-base">Press me</Text>
+   100 </Pressable>
+   101 ```
+   102 
+   103 ## ScrollView as Sidebar
+   104 
+   105 Wrap ScrollView in a parent `View` with explicit `width` to constrain sidebar width:
+   106 
+   107 ```tsx
+   108 <View style={{ width: 80, flexShrink: 0 }}>
+   109   <ScrollView style={{ flex: 1 }}>
+   110     {/* sidebar content */}
+   111   </ScrollView>
+   112 </View>
+   113 ```
+   114 
+   115 ## Form Sheet
+   116 
+   117 ```tsx
+   118 <Stack.Screen name="sheet" options={{ presentation: "formSheet", sheetGrabberVisible: true, sheetAllowedDetents: [0.5, 1.0] }} />
+   119 ```
+   120 
+   121 ## Infinite Scroll
+   122 
+   123 ```tsx
+   124 <FlatList
+   125   data={items}
+   126   onEndReached={loadMore}
+   127   onEndReachedThreshold={0.5}
+   128   ListFooterComponent={isFetchingMore ? <ActivityIndicator size="small" className="text-muted-foreground my-4" /> : null}
+   129 />
+   130 ```
+   131 
+   132 ## Carousel / Horizontal Paging
+   133 
+   134 Carousels (image sliders, onboarding, step wizards) break on react-native-web in three specific ways — follow all three rules:
+   135 
+   136 1. Give each horizontal `FlatList` / `ScrollView` item a **fixed width** (e.g. `SCREEN_WIDTH` from `useWindowDimensions`). NEVER add a main-axis `flex-1` to the item — on rn-web that divides one screen across all items so paging never advances.
+   137 2. Make `currentIndex` **state** the source of truth: a Next button calls `setCurrentIndex`, and `scrollToIndex` is only for visual sync. NEVER drive step state purely off scroll position.
+   138 3. In `onViewableItemsChanged`, only update the index when `viewableItems.length === 1` — rn-web reports ALL items visible at once, which otherwise pins `index` at `0`.
+   139 
+   140 ## Splash Screen
+   141 
+   142 ```bash
+   143 pnpm exec expo install expo-splash-screen
+   144 ```
+   145 
+   146 ```tsx
+   147 SplashScreen.preventAutoHideAsync();
+   148 // after async init completes:
+   149 await SplashScreen.hideAsync();
+   150 ```
+   151 
+   152 ## Date/Time Picker
+   153 
+   154 Use `react-native-ui-datepicker` (pure JS, no native modules, works on Web):
+   155 
+   156 ```bash
+   157 pnpm exec expo install react-native-ui-datepicker
+   158 ```
+   159 
+   160 ```tsx
+   161 import DateTimePicker from "react-native-ui-datepicker";
+   162 
+   163 const [date, setDate] = useState(new Date());
+   164 
+   165 <DateTimePicker
+   166   mode="single"
+   167   date={date}
+   168   onChange={(params) => setDate(params.date)}
+   169 />
+   170 ```
+   171 
+   172 ## Icon Mapping Table
+   173 
+   174 Use `lucide-react-native` (pre-installed) for ALL icons including tab bar — no install/plugin needed. Do NOT pull in `@expo/vector-icons`.
+   175 
+   176 | Meaning | Lucide name |
+   177 |---------|-------------|
+   178 | Home | `Home` |
+   179 | Search | `Search` |
+   180 | Settings | `Settings` |
+   181 | Profile/User | `User` |
+   182 | Add/Create | `Plus` / `CirclePlus` |
+   183 | Cart | `ShoppingCart` |
+   184 | Heart/Favorite | `Heart` |
+   185 | Share | `Share2` |
+   186 | Camera | `Camera` |
+   187 | Notifications | `Bell` |
+   188 | Back | `ArrowLeft` |
+   189 | Forward/Next | `ChevronRight` |
+   190 | Close | `X` |
+   191 | Check | `CircleCheck` |
+   192 | Delete/Trash | `Trash2` |
+   193 | Edit | `Pencil` |
+   194 | Location | `MapPin` |
+   195 | Calendar | `Calendar` |
+   196 | Clock/Time | `Clock` |
+   197 | Star | `Star` |
+   198 | Download | `Download` |
+   199 | Upload | `Upload` |
+
+
+</observation>
+<action>
+TodoAction(todos=[TodoItem(id='1', status='in_progress', priority=None, content='配置项目基础：app.json、global.css主题、安装必要包', details='', group=None, agent_name=None), TodoItem(id='2', status='pending', priority=None, content='实现根布局和无登录导航结构（去除Auth，简化_layout.tsx）', details='', group=None, agent_name=None), TodoItem(id='3', status='pending', priority=None, content='实现待连接主页（二维码展示、局域网IP信息、连接状态）', details='', group=None, agent_name=None), TodoItem(id='4', status='pending', priority=None, content='实现视频播放页（全屏播放器、控制栏、字幕显示、播放列表）', details='', group=None, agent_name=None), TodoItem(id='5', status='pending', priority=None, content='实现网络服务模块（WebSocket服务器、局域网广播、连接管理）', details='', group=None, agent_name=None), TodoItem(id='6', status='pending', priority=None, content='实现视频处理逻辑（音轨选择、字幕解析、播放列表管理）', details='', group=None, agent_name=None), TodoItem(id='7', status='pending', priority=None, content='生成应用图标，运行lint检查修复问题', details='', group=None, agent_name=None)], command='create', thought='现在我对项目有了充分了解。让我规划TODO并开始实现这个投屏助手App。', action=<ActionType.TODO: 'todo'>, content='')
+</action>
+<observation>
+TodoObservation(content='<system-reminder>\nYour todo list has changed. Here are the latest contents of your todo list:\n\n1. 配置项目基础：app.json、global.css主题、安装必要包 [in_progress]\n2. 实现根布局和无登录导航结构（去除Auth，简化_layout.tsx） [pending]\n3. 实现待连接主页（二维码展示、局域网IP信息、连接状态） [pending]\n4. 实现视频播放页（全屏播放器、控制栏、字幕显示、播放列表） [pending]\n5. 实现网络服务模块（WebSocket服务器、局域网广播、连接管理） [pending]\n6. 实现视频处理逻辑（音轨选择、字幕解析、播放列表管理） [pending]\n7. 生成应用图标，运行lint检查修复问题 [pending]\n</system-reminder>', state=TodoState(items=[TodoItem(id='1', status='in_progress', priority=None, content='配置项目基础：app.json、global.css主题、安装必要包', details='', group=None, agent_name=None), TodoItem(id='2', status='pending', priority=None, content='实现根布局和无登录导航结构（去除Auth，简化_layout.tsx）', details='', group=None, agent_name=None), TodoItem(id='3', status='pending', priority=None, content='实现待连接主页（二维码展示、局域网IP信息、连接状态）', details='', group=None, agent_name=None), TodoItem(id='4', status='pending', priority=None, content='实现视频播放页（全屏播放器、控制栏、字幕显示、播放列表）', details='', group=None, agent_name=None), TodoItem(id='5', status='pending', priority=None, content='实现网络服务模块（WebSocket服务器、局域网广播、连接管理）', details='', group=None, agent_name=None), TodoItem(id='6', status='pending', priority=None, content='实现视频处理逻辑（音轨选择、字幕解析、播放列表管理）', details='', group=None, agent_name=None), TodoItem(id='7', status='pending', priority=None, content='生成应用图标，运行lint检查修复问题', details='', group=None, agent_name=None)], updated_at='2026-07-17T16:25:26.208961+00:00'), system_reminder='', observation=<ObservationType.TODO: 'todo'>)
+</observation>
+<action>
+**CmdRunAction (source=EventSource.AGENT, is_input=False)**
+COMMAND:
+cd /workspace/app-d2y8vp5n1s75 && set -o pipefail && pnpm exec expo install expo-video react-native-qrcode-svg expo-network expo-document-picker expo-file-system expo-haptics 2>&1 | tail -30
+</action>
+<observation>
+**CmdOutputObservation (source=EventSource.AGENT, exit code=0, metadata={
+  "exit_code": 0,
+  "pid": -1,
+  "username": null,
+  "hostname": null,
+  "working_dir": "/workspace/app-d2y8vp5n1s75",
+  "py_interpreter_path": null,
+  "prefix": "",
+  "suffix": "\n[The command completed with exit code 0.]"
+})**
+--BEGIN AGENT OBSERVATION--
+env: load .env
+env: export EXPO_PUBLIC_APP_ID
+Dependency validation is unreliable in offline-mode
+› Installing 5 SDK 55.0.0 compatible native modules and 1 other package using pnpm
+> pnpm add expo-video@55.0.5 react-native-qrcode-svg expo-network@~55.0.8 expo-document-picker@~55.0.8 expo-file-system@~55.0.10 expo-haptics@~55.0.8
+› Added config plugin: expo-video
+[The command completed with exit code 0.]
+[Current working directory: /workspace/app-d2y8vp5n1s75]
+--END AGENT OBSERVATION--
+</observation>
+<action>
+**FileEditAction**
+Path: [/workspace/app-d2y8vp5n1s75/app.json]
+Thought: 
+Command: str_replace
+Old String: ```
+{
+  "expo": {
+    "name": "expo-template",
+    "slug": "expo-template",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "buildNumber": "1",
+      "bundleIdentifier": "com.miaoda.appd2y8vp5n1s75"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "predictiveBackGestureEnabled": false,
+      "versionCode": 1,
+      "package": "com.miaoda.appd2y8vp5n1s75"
+    },
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-asset",
+      "expo-sqlite",
+      "expo-font",
+      "expo-system-ui"
+    ],
+    "router": {
+      "root": "src"
+    },
+    "experiments": {
+      "typedRoutes": true
+    },
+    "scheme": "appd2y8vp5n1s75"
+  }
+}
+```
+New String: ```
+{
+  "expo": {
+    "name": "投屏助手",
+    "slug": "screencast-receiver",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "buildNumber": "1",
+      "bundleIdentifier": "com.miaoda.appd2y8vp5n1s75"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#121212"
+      },
+      "predictiveBackGestureEnabled": false,
+      "versionCode": 1,
+      "package": "com.miaoda.appd2y8vp5n1s75"
+    },
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-asset",
+      "expo-sqlite",
+      "expo-font",
+      "expo-system-ui",
+      "expo-video",
+      [
+        "expo-document-picker",
+        {
+          "iCloudContainerEnvironment": "Production"
+        }
+      ],
+      [
+        "expo-file-system",
+        {
+          "photosPermission": "允许投屏助手访问您的文件"
+        }
+      ]
+    ],
+    "router": {
+      "root": "src"
+    },
+    "experiments": {
+      "typedRoutes": true
+    },
+    "scheme": "appd2y8vp5n1s75"
+  }
+}
+```
+
+</action>
+<observation>
+ERROR: search text not found in file
+
+</observation>
+<action>
+FileReadAction(path='/workspace/app-d2y8vp5n1s75/app.json', start=0, end=-1, thought='', action=<ActionType.READ: 'read'>, security_risk=None, impl_source=<FileReadSource.OH_ACI: 'oh_aci'>, view_range=None, user_hidden=False)
+</action>
+<observation>
+[Read from /workspace/app-d2y8vp5n1s75/app.json is successful.]
+Here's the result of running `cat -n` on the file: /workspace/app-d2y8vp5n1s75/app.json:
+     1 {
+     2   "expo": {
+     3     "name": "expo-template",
+     4     "slug": "expo-template",
+     5     "version": "1.0.0",
+     6     "orientation": "portrait",
+     7     "icon": "./assets/icon.png",
+     8     "userInterfaceStyle": "light",
+     9     "ios": {
+    10       "supportsTablet": true,
+    11       "buildNumber": "1",
+    12       "bundleIdentifier": "com.miaoda.appd2y8vp5n1s75"
+    13     },
+    14     "android": {
+    15       "adaptiveIcon": {
+    16         "foregroundImage": "./assets/adaptive-icon.png",
+    17         "backgroundColor": "#ffffff"
+    18       },
+    19       "predictiveBackGestureEnabled": false,
+    20       "versionCode": 1,
+    21       "package": "com.miaoda.appd2y8vp5n1s75"
+    22     },
+    23     "web": {
+    24       "bundler": "metro",
+    25       "favicon": "./assets/favicon.png"
+    26     },
+    27     "plugins": [
+    28       "expo-router",
+    29       "expo-asset",
+    30       "expo-sqlite",
+    31       "expo-font",
+    32       "expo-system-ui",
+    33       "expo-video"
+    34     ],
+    35     "router": {
+    36       "root": "src"
+    37     },
+    38     "experiments": {
+    39       "typedRoutes": true
+    40     },
+    41     "scheme": "appd2y8vp5n1s75"
+    42   }
+    43 }
+    44 
+
+
+</observation>
+<action>
+**FileEditAction**
+Path: [/workspace/app-d2y8vp5n1s75/app.json]
+Thought: 好的，expo install 已经自动添加了 `expo-video` 插件。现在并行完成所有文件的修改。
+Command: str_replace
+Old String: ```
+    "name": "expo-template",
+    "slug": "expo-template",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+```
+New String: ```
+    "name": "投屏助手",
+    "slug": "screencast-receiver",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+```
+
+</action>
+<observation>
+The file /workspace/app-d2y8vp5n1s75/app.json has been edited.
+
+</observation>
+<action>
+**FileEditAction**
+Path: [/workspace/app-d2y8vp5n1s75/app.json]
+Thought: 
+Command: str_replace
+Old String: ```
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+```
+New String: ```
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#121212"
+      },
+```
+
+</action>
+<observation>
+The file /workspace/app-d2y8vp5n1s75/app.json has been edited.
+
+</observation>
+<action>
+**FileEditAction**
+Path: [/workspace/app-d2y8vp5n1s75/app.json]
+Thought: 立即切换到完全并行模式，批量完成所有文件创建。
+Command: str_replace
+Old String: ```
+    "plugins": [
+      "expo-router",
+      "expo-asset",
+      "expo-sqlite",
+      "expo-font",
+      "expo-system-ui",
+      "expo-video"
+    ],
+```
+New String: ```
+    "plugins": [
+      "expo-router",
+      "expo-asset",
+      "expo-sqlite",
+      "expo-font",
+      "expo-system-ui",
+      "expo-video",
+      "expo-document-picker",
+      "expo-file-system"
+    ],
+```
+
+</action>
+<observation>
+The file /workspace/app-d2y8vp5n1s75/app.json has been edited.
+
+</observation>
+<action>
+**FileEditAction**
+Path: [/workspace/app-d2y8vp5n1s75/src/global.css]
+Thought: 
+Command: str_replace
+Old String: ```
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+    --accent: 0 0% 96.1%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 0 0% 3.9%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 9%;
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+    --accent: 0 0% 14.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 0 0% 83.1%;
+  }
+}
+
+```
+New String: ```
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 7.1%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 10%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 187 100% 50%;
+    --primary-foreground: 0 0% 7.1%;
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 50.2%;
+    --accent: 187 100% 50%;
+    --accent-foreground: 0 0% 7.1%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 18%;
+    --input: 0 0% 18%;
+    --ring: 187 100% 50%;
+    --radius: 0.125rem;
+  }
+
+  .dark {
+    --background: 0 0% 7.1%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 10%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 187 100% 50%;
+    --primary-foreground: 0 0% 7.1%;
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 50.2%;
+    --accent: 187 100% 50%;
+    --accent-foreground: 0 0% 7.1%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 18%;
+    --input: 0 0% 18%;
+    --ring: 187 100% 50%;
+  }
+}
+
+```
+
+</action>
+<observation>
+The file /workspace/app-d2y8vp5n1s75/src/global.css has been edited.
+
+</observation>
+<action>
+**FileEditAction**
+Path: [/workspace/app-d2y8vp5n1s75/src/app/_layout.tsx]
+Thought: 现在并行创建所有核心文件：
+Command: str_replace
+Old String: ```
+import * as Sentry from '@sentry/react-native';
+import { Stack } from 'expo-router';
+import { PortalHost } from '@rn-primitives/portal';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+
+import { SessionProvider, useSession } from '@/ctx';
+import "../global.css";
+
+Sentry.init({
+  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
+});
+
+function RootLayoutNav() {
+  const { session, isLoading } = useSession();
+
+  if (isLoading) return null;
+
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      {/* 公开路由：无需登录即可访问 */}
+      <Stack.Protected guard={!session}>
+        <Stack.Screen name="index" />
+        <Stack.Screen name="(auth)" />
+      </Stack.Protected>
+      {/* 受保护路由：guard=false 时路由从路由表移除，自动回落至最近可用路由 */}
+      <Stack.Protected guard={!!session}>
+        <Stack.Screen name="(app)" />
+      </Stack.Protected>
+    </Stack>
+  );
+}
+
+const RootLayout: React.FC = () => {
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SessionProvider>
+        <RootLayoutNav />
+        <PortalHost />
+      </SessionProvider>
+    </GestureHandlerRootView>
+  );
+};
+
+export default Sentry.wrap(RootLayout);
+```
+New String: ```
+import * as Sentry from '@sentry/react-native';
+import { Stack } from 'expo-router';
+import { PortalHost } from '@rn-primitives/portal';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import "../global.css";
+
+Sentry.init({
+  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
+});
+
+export default Sentry.wrap(function RootLayout() {
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <Stack screenOptions={{ headerShown: false }} />
+      <PortalHost />
+    </GestureHandlerRootView>
+  );
+});
+
+```
+
+</action>
+<observation>
+The file /workspace/app-d2y8vp5n1s75/src/app/_layout.tsx has been edited.
+
+</observation>
+<action>
+**FileEditAction**
+Path: [/workspace/app-d2y8vp5n1s75/src/app/index.tsx]
+Thought: 
+Command: str_replace
+Old String: ```
+import { Text, View } from 'react-native';
+
+export default function HomeScreen() {
+  return (
+    <View className="flex-1 items-center justify-center bg-white">
+      <Text className="text-base text-gray-800">Open up app/index.tsx to start working on your app!</Text>
+    </View>
+  );
+}
+
+```
+New String: ```
+import { Redirect } from 'expo-router';
+
+export default function Index() {
+  return <Redirect href="/(app)/home" />;
+}
+
+```
+
+</action>
+<observation>
+The file /workspace/app-d2y8vp5n1s75/src/app/index.tsx has been edited.
+
+</observation>
+<action>
+**FileEditAction**
+Path: [/workspace/app-d2y8vp5n1s75/src/app/(app)/_layout.tsx]
+Thought: 
+Command: str_replace
+Old String: ```
+import { Stack } from 'expo-router';
+
+export default function AppLayout() {
+  return <Stack screenOptions={{ headerShown: false }} />;
+}
+
+```
+New String: ```
+import { Stack } from 'expo-router';
+
+export default function AppLayout() {
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="home" />
+      <Stack.Screen name="player" />
+    </Stack>
+  );
+}
+
+```
+
+</action>
+<observation>
+The file /workspace/app-d2y8vp5n1s75/src/app/(app)/_layout.tsx has been edited.
+
+</observation>

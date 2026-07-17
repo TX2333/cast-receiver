@@ -1,7 +1,7 @@
 /**
- * 待连接主页
+ * 待连接主页（接收端）
  * - 展示二维码和局域网连接信息
- * - 自动启动投屏服务器
+ * - 自动启动投屏服务器，向 Supabase 广播设备在线
  * - 连接建立后自动跳转播放页
  */
 import { useCallback, useEffect, useRef } from 'react';
@@ -10,7 +10,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import QRCode from 'react-native-qrcode-svg';
-import { Wifi, Cast, MonitorPlay, Info } from 'lucide-react-native';
+import { Wifi, Cast, MonitorPlay, Info, Send } from 'lucide-react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -20,6 +20,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { buildQrPayload } from '@/lib/castServer';
 import { usePlayer } from '@/lib/playerContext';
+import type { RelativePathString } from 'expo-router';
 
 // ─── 扫描框角标组件 ───────────────────────────────────────────────────────────
 function ScanCorner({ position }: { position: 'tl' | 'tr' | 'bl' | 'br' }) {
@@ -65,8 +66,8 @@ export default function HomeScreen() {
     }
   }, [currentVideo, router]);
 
-  // 二维码内容
-  const qrValue = buildQrPayload(serverState.localIp, serverState.port);
+  // 二维码内容（用 deviceId 标识，发送端扫码后到 Supabase 找到此设备）
+  const qrValue = buildQrPayload(serverState.deviceId || 'loading');
   const isRunning = serverState.status === 'running';
 
   // 呼吸动画（等待连接时）
@@ -174,7 +175,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* 演示按钮（测试用） */}
+        {/* 演示按钮 + 发送端入口 */}
         <View className="px-6 pb-12 gap-3">
           <Pressable
             className="bg-primary rounded p-4 items-center active:opacity-70"
@@ -191,9 +192,19 @@ export default function HomeScreen() {
             </Text>
           </Pressable>
 
+          {/* 发送端入口 */}
+          <Pressable
+            className="flex-row items-center justify-center gap-2 border border-border rounded py-3 active:opacity-70"
+            style={{ borderRadius: 4 }}
+            onPress={() => router.push('/(app)/sender' as RelativePathString)}
+          >
+            <Send size={14} color="#555" />
+            <Text className="text-muted-foreground text-xs">切换到发送端 / 向其他设备投屏</Text>
+          </Pressable>
+
           <Animated.View style={breathStyle}>
             <Text className="text-center text-xs text-muted-foreground">
-              等待发送端连接...
+              {isRunning ? `设备已广播在线 · ${serverState.localIp}` : '等待服务启动...'}
             </Text>
           </Animated.View>
         </View>
