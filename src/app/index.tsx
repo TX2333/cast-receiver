@@ -1,9 +1,5 @@
-import { Text, View } from 'react-native';
+import { Redirect } from 'expo-router';
 
-export default function HomeScreen() {
-  return (
-    <View className="flex-1 items-center justify-center bg-white">
-      <Text className="text-base text-gray-800">Open up app/index.tsx to start working on your app!</Text>
-    </View>
-  );
+export default function Index() {
+  return <Redirect href="/(app)/home" />;
 }

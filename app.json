@@ -1,22 +1,24 @@
 {
   "expo": {
-    "name": "expo-template",
-    "slug": "expo-template",
+    "name": "投屏助手",
+    "slug": "screencast-receiver",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true,
-      "buildNumber": "1"
+      "buildNumber": "1",
+      "bundleIdentifier": "com.miaoda.appd2y8vp5n1s75"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#121212"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 1
+      "versionCode": 1,
+      "package": "com.miaoda.appd2y8vp5n1s75"
     },
     "web": {
       "bundler": "metro",
@@ -27,13 +29,17 @@
       "expo-asset",
       "expo-sqlite",
       "expo-font",
-      "expo-system-ui"
+      "expo-system-ui",
+      "expo-video",
+      "expo-document-picker",
+      "expo-file-system"
     ],
     "router": {
       "root": "src"
     },
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "scheme": "appd2y8vp5n1s75"
   }
 }
