@@ -3,7 +3,7 @@
     "name": "投屏助手",
     "slug": "screencast-receiver",
     "version": "1.0.3",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "ios": {
@@ -18,7 +18,12 @@
       },
       "predictiveBackGestureEnabled": false,
       "versionCode": 1,
-      "package": "com.miaoda.appd2y8vp5n1s75"
+      "package": "com.miaoda.appd2y8vp5n1s75",
+      "permissions": [
+        "ACCESS_WIFI_STATE",
+        "CHANGE_WIFI_MULTICAST_STATE",
+        "ACCESS_NETWORK_STATE"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -32,7 +37,8 @@
       "expo-system-ui",
       "expo-video",
       "expo-document-picker",
-      "expo-file-system"
+      "expo-file-system",
+      "./plugins/withAndroidReleaseSigning"
     ],
     "router": {
       "root": "src"

@@ -1,0 +1,9 @@
+{
+  "extends": "expo-module-scripts/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "jsx": "react-jsx"
+  },
+  "include": ["src"],
+  "exclude": ["android", "ios", "**/*.android.ts", "**/*.ios.ts"]
+}

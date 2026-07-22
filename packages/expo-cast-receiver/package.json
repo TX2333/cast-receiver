@@ -1,0 +1,19 @@
+{
+  "name": "expo-cast-receiver",
+  "version": "0.1.0",
+  "description": "DLNA/UPnP MediaRenderer (DMR) receiver for screen casting on Android",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "expo-module build"
+  },
+  "keywords": [
+    "expo",
+    "dlna",
+    "upnp",
+    "cast",
+    "media-renderer"
+  ],
+  "license": "MIT",
+  "peerDependencies": {}
+}

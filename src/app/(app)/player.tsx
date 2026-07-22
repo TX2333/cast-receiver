@@ -66,6 +66,7 @@ export default function PlayerScreen() {
     setPlaying,
     setPosition,
     setActiveCue,
+    volume,
     playNext,
     playPrev,
     playAt,
@@ -142,6 +143,11 @@ export default function PlayerScreen() {
       player.pause();
     }
   }, [isPlaying, player]);
+
+  // 同步音量（来自 DLNA 遥控）
+  useEffect(() => {
+    player.volume = volume;
+  }, [volume, player]);
 
   // 轮询播放进度并更新字幕
   useEffect(() => {
