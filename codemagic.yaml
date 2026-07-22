@@ -1,6 +1,7 @@
 environment:
   node: "20"
   pnpm: "9"
+  java: "17"
 
 workflows:
   android-apk:
@@ -13,12 +14,6 @@ workflows:
     scripts:
       - name: Install dependencies
         script: pnpm install
-      - name: Prepare Android SDK
-        script: |
-          export ANDROID_HOME=$ANDROID_SDK_ROOT
-          echo "sdk.dir=$ANDROID_HOME" > "$CM_BUILD_DIR/android/local.properties"
-          yes | sdkmanager --licenses
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
       - name: Expo prebuild
         script: npx expo prebuild --platform android --no-install
       - name: Build release APK
