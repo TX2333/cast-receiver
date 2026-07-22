@@ -139,7 +139,9 @@ class CastReceiverModule : Module() {
     // ------------------------------------------------------------------
     private fun runSsdp() {
         try {
-            val socket = MulticastSocket(1900)
+            // Android 普通应用无法绑定 1024 以下端口(如 1900)，故用临时端口加入组播组接收 M-SEARCH，
+            // 回包通过单播发往请求方源端口即可被发现。
+            val socket = MulticastSocket(0)
             socket.reuseAddress = true
             try {
                 socket.joinGroup(InetAddress.getByName("239.255.255.250"))

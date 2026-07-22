@@ -1,29 +1,35 @@
-const { withAppBuildGradle, AndroidConfig } = require('@expo/config-plugins');
+const { withAppBuildGradle } = require('@expo/config-plugins');
 
 /**
- * Ensures the release build type is signed with the debug keystore so that
- * `assembleRelease` produces an installable (signed) APK without requiring a
- * custom keystore. When a real keystore is configured (e.g. via Codemagic
- * `android_signing`), remove this plugin or adjust the signingConfig.
+ * 确保 release 构建使用 debug keystore 签名，使 `assembleRelease` 产出可安装的 APK，
+ * 无需自定义 keystore。若已配置正式签名（如 Codemagic 的 android_signing），则保持不变。
  */
 module.exports = function withAndroidReleaseSigning(config) {
   return withAppBuildGradle(config, (cfg) => {
     const contents = cfg.modResults.contents;
-    if (contents.includes('signingConfig signingConfigs.debug')) {
-      // Already signed with the debug keystore.
-      return cfg;
-    }
-    const marker = 'buildTypes {';
-    const idx = contents.indexOf(marker);
-    if (idx === -1) {
+    const marker = 'release {';
+    const releaseIdx = contents.indexOf(marker);
+
+    if (releaseIdx === -1) {
+      // 找不到 release 块，兜底追加
       cfg.modResults.contents =
         contents + '\nandroid { buildTypes { release { signingConfig signingConfigs.debug } } }\n';
-    } else {
-      const insertPos = idx + marker.length;
-      const injection = '\n        release { signingConfig signingConfigs.debug }';
-      cfg.modResults.contents =
-        contents.slice(0, insertPos) + injection + contents.slice(insertPos);
+      return cfg;
     }
+
+    // 仅截取 release 块内容（到第一个顶格的 '}' 为止），判断其中是否已声明 signingConfig
+    const after = contents.slice(releaseIdx);
+    const blockEnd = after.search(/\n\}/);
+    const releaseBlock = blockEnd === -1 ? after : after.slice(0, blockEnd);
+    if (releaseBlock.includes('signingConfig')) {
+      return cfg; // 已签名（debug keystore 或正式 keystore），无需处理
+    }
+
+    const injectPos = releaseIdx + marker.length;
+    cfg.modResults.contents =
+      contents.slice(0, injectPos) +
+      '\n            signingConfig signingConfigs.debug' +
+      contents.slice(injectPos);
     return cfg;
   });
 };
