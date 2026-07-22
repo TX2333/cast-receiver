@@ -213,13 +213,19 @@ class CastServer {
 
   // ─── 停止 ─────────────────────────────────────────────────────────────
   async stop() {
+    // 先清定时器，防止 upsertSession / pollCommands 在 await 删除期间再次触发
     if (this.heartbeatTimer) { clearInterval(this.heartbeatTimer); this.heartbeatTimer = null; }
     if (this.pollTimer) { clearInterval(this.pollTimer); this.pollTimer = null; }
     if (this.broadcastChannel) { this.broadcastChannel.close(); this.broadcastChannel = null; }
 
-    // 从数据库删除在线记录
+    // 从数据库删除在线记录（带超时保护，避免网络慢时卡住 App 退出）
     if (this.deviceId) {
-      await supabase.from('cast_sessions').delete().eq('device_id', this.deviceId);
+      const deletePromise = supabase
+        .from('cast_sessions')
+        .delete()
+        .eq('device_id', this.deviceId);
+      const timeoutPromise = new Promise<void>((resolve) => setTimeout(resolve, 3000));
+      await Promise.race([deletePromise, timeoutPromise]);
     }
 
     this.status = 'stopped';

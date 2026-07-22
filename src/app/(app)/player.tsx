@@ -134,14 +134,14 @@ export default function PlayerScreen() {
     })();
   }, [currentVideo?.url]);
 
-  // 同步 isPlaying 状态
+  // 同步 isPlaying 状态（补全 player 依赖，防止 stale closure）
   useEffect(() => {
     if (isPlaying) {
       player.play();
     } else {
       player.pause();
     }
-  }, [isPlaying]);
+  }, [isPlaying, player]);
 
   // 轮询播放进度并更新字幕
   useEffect(() => {
@@ -160,7 +160,7 @@ export default function PlayerScreen() {
     };
   }, [player, subtitleCues, setPosition, setActiveCue]);
 
-  // 播放结束时自动下一曲
+  // 播放结束时自动下一曲（补全 player/setPlaying 依赖）
   useEffect(() => {
     const sub = player.addListener('playToEnd', () => {
       if (currentIndex < playlist.length - 1) {

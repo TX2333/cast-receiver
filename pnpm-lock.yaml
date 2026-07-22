@@ -161,8 +161,8 @@ importers:
         specifier: ^1.11.0
         version: 1.24.0(react-native-svg@15.15.3(react-native@0.83.2(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.2(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0)
       miaoda-expo-devkit:
-        specifier: 0.1.1-beta.94
-        version: 0.1.1-beta.94(d910abd112a8551508739d0dc90420ba)
+        specifier: 0.1.1-beta.95
+        version: 0.1.1-beta.95(d910abd112a8551508739d0dc90420ba)
       nativewind:
         specifier: ^4.2.3
         version: 4.2.6(react-native-reanimated@4.2.1(react-native-worklets@0.7.2(@babel/core@7.29.7)(react-native@0.83.2(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.2(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native-safe-area-context@5.6.2(react-native@0.83.2(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native-svg@15.15.3(react-native@0.83.2(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.2(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0)(tailwindcss@3.4.19(yaml@2.9.0))
@@ -4156,8 +4156,8 @@ packages:
     engines: {node: '>=20.19.4'}
     hasBin: true
 
-  miaoda-expo-devkit@0.1.1-beta.94:
-    resolution: {integrity: sha512-03ajBPvXMRANmC0eR48r2XlMjR5X0Lhbi6J8PMOyol/SiFaXkv/V3d4ttsL1UuEU59m64dDRKBf6ea1ZnL11Hg==}
+  miaoda-expo-devkit@0.1.1-beta.95:
+    resolution: {integrity: sha512-napuuNJIWJDajk68stabi87Xq2IjT+MRb0K63ImAO/2zKt+wo2V4nlU4Mtd0M/N3tlCly09TTAGZihid68yM7Q==}
     hasBin: true
     peerDependencies:
       '@sentry/core': ^10.38.0
@@ -9960,7 +9960,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  miaoda-expo-devkit@0.1.1-beta.94(d910abd112a8551508739d0dc90420ba):
+  miaoda-expo-devkit@0.1.1-beta.95(d910abd112a8551508739d0dc90420ba):
     dependencies:
       '@zumer/snapdom': 2.16.0
       babel-preset-expo: 55.0.6(@babel/core@7.29.7)(@babel/runtime@7.29.7)(expo@55.0.6)(react-refresh@0.14.2)

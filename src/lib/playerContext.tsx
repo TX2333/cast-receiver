@@ -104,8 +104,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       }
       case 'stop':
         setIsPlayingState(false);
-        setPlaylist([]);
-        setCurrentIndex(0);
+        // 不清空 playlist，保留当前视频信息避免 player 页因 currentVideo=null 白屏
+        // 仅重置字幕和播放位置
         setSubtitleCues([]);
         setActiveCueText('');
         break;
