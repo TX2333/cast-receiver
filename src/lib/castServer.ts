@@ -67,6 +67,15 @@ const SESSION_EXPIRE_SEC = 20;     // 超过 20s 未心跳视为离线
 // ─── 获取本机局域网 IP ────────────────────────────────────────────────────────
 export async function getLocalIp(): Promise<string> {
   try {
+    const state = await Network.getNetworkStateAsync();
+    // 优先使用真实网络连接（非 VPN / 回环）
+    if (state.type === Network.NetworkStateType.WIFI ||
+        state.type === Network.NetworkStateType.CELLULAR ||
+        state.type === Network.NetworkStateType.OTHER) {
+      const ip = await Network.getIpAddressAsync();
+      if (ip && ip !== '0.0.0.0' && ip !== '127.0.0.1') return ip;
+    }
+    // 回退：直接取 IP
     const ip = await Network.getIpAddressAsync();
     return ip ?? '192.168.x.x';
   } catch {

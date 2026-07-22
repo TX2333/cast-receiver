@@ -151,6 +151,15 @@ export default function HomeScreen() {
               局域网直连
             </Text>
             <View className="bg-card rounded p-5 gap-4" style={{ borderRadius: 4 }}>
+              {/* 设备名 */}
+              <InfoRow
+                icon={<MonitorPlay size={16} color="#00E5FF" />}
+                label="设备名称"
+                value={serverState.deviceName || '投屏助手'}
+                highlight
+              />
+              <View className="h-px bg-border" />
+              {/* 设备地址 */}
               <InfoRow
                 icon={<Wifi size={16} color="#00E5FF" />}
                 label="设备地址"
@@ -158,10 +167,11 @@ export default function HomeScreen() {
                 highlight
               />
               <View className="h-px bg-border" />
+              {/* 端口 */}
               <InfoRow
                 icon={<Cast size={16} color="#555" />}
-                label="端口"
-                value={String(serverState.port)}
+                label="服务端口"
+                value={isRunning ? String(serverState.port) : '—'}
               />
             </View>
 
