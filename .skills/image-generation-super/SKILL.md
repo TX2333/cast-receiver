@@ -26,8 +26,8 @@ license: MIT
 
 **核心能力：**
 
-- **文生图**：通过 `prompt` 描述生成一张全新图片，支持多种尺寸配置
-- **多图编辑**：上传 1–3 张图片，通过文本描述控制融合、背景替换、风格统一、局部重绘等效果，每次仅生成一张图片
+- **文生图**：通过 `prompt` 描述生成全新图片，支持多种尺寸和数量配置
+- **多图编辑**：上传 1–3 张图片，通过文本描述控制融合、背景替换、风格统一、局部重绘等效果
 - **提示词优化**：接口返回 `revised_prompt`，展示模型自动优化后的提示词
 
 **平台差异概览：**
@@ -53,6 +53,16 @@ license: MIT
 | 上传图片 + 提示词做风格转换或内容编辑 | ✅ 本工具（图生图） |
 | 多张图片融合 / 背景替换 / 海报合成 | ✅ 本工具（多图编辑） |
 | 图片内容审核 / 质量评分 | ❌ 改用视觉模型直接分析，无需生成 |
+
+**图生图优先原则（重要）：**
+
+满足以下任一条件时，**必须使用 `editImage`（图生图）接口，禁止使用 `createImage`（文生图）**：
+1. 用户在对话中上传了图片
+2. 本次对话中已通过本工具生成过图片
+
+用户提出的修改意见（如"换个背景"、"改成卡通风格"、"让颜色更鲜艳"）均属于对已有图片的编辑，必须走图生图流程。
+
+**禁止覆盖原图：** 编辑后的图片必须保存为新文件（如在原文件名后加 `_v2`、`_edited` 或序号），原始图片文件不得修改或删除。
 
 ---
 
@@ -88,132 +98,41 @@ A golden retriever puppy, sitting and looking up curiously, in a cozy living roo
 
 > **在调用 API 之前，先将用户需求翻译/改写为英文提示词**，GPT-Image-2 模型对英文输入的图像质量明显优于中文。
 
-两个接口均为同步调用，直接返回 Base64 编码图片数据，不含 URL。获得响应后必须立即将 Base64 解码保存为图片文件。
+两个接口均为同步调用，直接返回 Base64 编码图片，不含 URL。
 
-```typescript
-const apiKey = process.env["INTEGRATIONS_API_KEY"]!;
+**核心原则：Base64 数据绝不进入模型上下文。** 图片 Base64 通常达 1–3 MB，折合 25 万–75 万 token。应直接调用 `scripts/generate_image.py`，脚本内完成请求、解码、写文件全部操作，模型只接收最终元数据。
 
-interface CreateImageResult {
-  created: number;
-  data: Array<{
-    b64_json: string;
-    revised_prompt: string;
-  }>;
-  background: string;
-  output_format: string;
-  quality: string;
-  size: string;
-  model: string;
-}
+**完整生成期工作流：**
 
-/** 创建图片（文生图）— 每次仅生成 1 张 */
-async function createImage(
-  prompt: string,
-  size?: string
-): Promise<CreateImageResult> {
-  const response = await fetch(
-    "http://210.61.187.215:27533/v1/images/generations",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Gateway-Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-image-2",
-        prompt,
-        size,
-        n: 1, // 固定为 1，不可修改
-      }),
-    }
-  );
-  if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
-  const json = await response.json();
-  if (json.error) throw new Error(`API error: ${JSON.stringify(json.error)}`);
-  return json;
-}
+1. 判断接口：对话中有已有图片（用户上传或之前已生成）→ 加 `--images`；纯文字描述 → 不加
+2. 确定保存路径（图生图**不得覆盖原文件**，追加 `_v2` / `_edited` 后缀）
+3. 用 Bash 工具执行脚本（参见下方命令），**必须将 Bash 工具的超时时间设置为 600000ms（600 秒）**，否则默认 120 秒会导致请求中断
+4. 脚本 stdout 输出一行 JSON，读取 `file` 和 `revised_prompt` 告知用户
 
-interface EditImageResult {
-  created: number;
-  data: Array<{
-    b64_json: string;
-    revised_prompt: string;
-  }>;
-  background: string;
-  output_format: string;
-  quality: string;
-  size: string;
-  model: string;
-  usage?: {
-    input_tokens: number;
-    input_tokens_details: { image_tokens: number; text_tokens: number };
-    output_tokens: number;
-    output_tokens_details: { image_tokens: number; text_tokens: number };
-    total_tokens: number;
-  };
-}
-
-/** 编辑图片（多图融合/编辑）— 每次仅生成 1 张 */
-async function editImage(
-  prompt: string,
-  images: File[],
-  size?: string
-): Promise<EditImageResult> {
-  const formData = new FormData();
-  formData.append("model", "gpt-image-2");
-  formData.append("prompt", prompt);
-  formData.append("n", "1"); // 固定为 1，不可修改
-  if (size) formData.append("size", size);
-  images.forEach((file, index) => {
-    formData.append(`image[${index}]`, file);
-  });
-
-  const response = await fetch(
-    "http://210.61.187.215:27533/v1/images/edits",
-    {
-      method: "POST",
-      headers: {
-        "X-Gateway-Authorization": `Bearer ${apiKey}`,
-      },
-      body: formData,
-    }
-  );
-  if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
-  const json = await response.json();
-  if (json.error) throw new Error(`API error: ${JSON.stringify(json.error)}`);
-  return json;
-}
-```
-
-**生成期文件保存（必须执行）：**
-
-两个接口均返回 Base64 编码图片，数据仅存在于当次响应中。获得 Base64 后，**必须立即使用 Bash 工具将其解码并保存到本地**，以便用户查看结果。
+**文生图：**
 
 ```bash
-echo "<base64_data>" | base64 -d > <本地路径>.png
+python3 <skill-path>/scripts/generate_image.py \
+  --prompt "ENGLISH_PROMPT_HERE" \
+  --output image.png \
+  --size 1024x1024
 ```
 
-**完整生成期工作流（含保存步骤）：**
+**图生图 / 多图编辑：**
 
-1. 根据用户需求选择对应接口（`createImage` 或 `editImage`）
-2. 构造请求参数并调用接口获取响应
-3. 从 `json.data[0].b64_json` 提取 Base64 数据
-4. 使用 Bash 工具将 Base64 解码并保存：`echo "<b64_json>" | base64 -d > <本地路径>.png`
-5. 告知用户文件已保存到对应路径，同时展示 `revised_prompt`
+```bash
+python3 <skill-path>/scripts/generate_image.py \
+  --prompt "ENGLISH_PROMPT_HERE" \
+  --output image_v2.png \
+  --size 1024x1024 \
+  --images /path/to/img1.png [/path/to/img2.png]
+```
 
-> **注意**：Base64 数据仅存在于当次响应中，必须及时保存，否则数据丢失。
+脚本成功时 stdout 输出：`{"file": "image.png", "revised_prompt": "...", "size": "1024x1024"}`
 
-**空间位置描述（生成期 Prompt 增强）：**
+**Prompt 空间位置增强（可选）：**
 
-在提示词中加入空间位置词可显著提高构图准确性：
-
-| 位置关键词 | 说明 | 示例 |
-|-----------|------|------|
-| `centered` / `in the center` | 主体居中 | `"a red rose, centered, white background"` |
-| `in the top-left / bottom-right corner` | 角落定位 | `"logo in the top-left corner"` |
-| `in the foreground / background` | 前景/背景层次 | `"flowers in the foreground, mountains in the background"` |
-| `on the left side / right side` | 左右分布 | `"person on the left, product on the right"` |
-| `filling the entire frame` | 占满画面 | `"texture filling the entire frame"` |
+加入空间位置词可提高构图准确性：`centered`、`in the top-left corner`、`in the foreground / background`、`on the left side / right side`、`filling the entire frame`。
 
 ---
 
@@ -247,7 +166,7 @@ echo "<base64_data>" | base64 -d > <本地路径>.png
 | `model` | `string` | 是 | 固定值：`gpt-image-2` |
 | `prompt` | `string` | 是 | 图片生成描述词 |
 | `size` | `string` | 否 | 输出尺寸：`1024x1024`、`1536x1024`、`1024x1536`、`2848x1152` |
-| `n` | `integer` | — | **固定为 `1`**，每次仅生成 1 张，不可修改 |
+| `n` | `integer` | 否 | 生成数量，默认 1 |
 
 ### 编辑图片核心参数
 
@@ -256,7 +175,7 @@ echo "<base64_data>" | base64 -d > <本地路径>.png
 | `model` | `string` | 是 | 固定值：`gpt-image-2` |
 | `prompt` | `string` | 是 | 图片编辑描述词 |
 | `size` | `string` | 否 | 输出尺寸 |
-| `n` | `integer` | — | **固定为 `1`**，每次仅生成 1 张，不可修改 |
+| `n` | `integer` | 否 | 输出数量，默认 1 |
 | `image[0]` | `file` | 是 | 主图片文件 |
 | `image[1]` | `file` | 否 | 附加图片文件 |
 | `image[2]` | `file` | 否 | 附加图片文件 |
@@ -275,14 +194,10 @@ echo "<base64_data>" | base64 -d > <本地路径>.png
 
 ## 注意事项
 
-- **密钥安全**：`INTEGRATIONS_API_KEY` 仅可在 Edge Function 服务端读取，严禁暴露到前端代码或客户端环境变量中。
-- **生成数量限制**：创建和编辑接口的 `n` 参数均固定为 `1`，每次调用仅生成 1 张图片。Agent 生成代码时 `n` 必须写死为 `1`，不能在参数列表中暴露给用户修改，也不能让用户指定生成多张。前端 UI 不能提供"生成数量"选项。
-- **Base64 数据及时保存**：两个接口均返回 Base64 编码图片，数据仅存在于当次响应中。生成期必须在获得响应后立即使用 Bash `base64 -d` 保存为文件。
-- **文件上传限制**：编辑接口最多支持 3 张图片（`image[0]` 必填，`image[1]`、`image[2]` 可选），需确保图片格式和大小符合上游要求。
-- **错误处理**：
-  - `429` — 配额已用尽
-  - `402` — 余额不足
-  - `400` — 请求参数错误
-  - `401` — 认证失败
+- **Base64 不进上下文**：生成期图片数据通过脚本直接写到磁盘，禁止让模型接收 Base64 再输出保存命令，否则每次生成消耗 25–75 万 token。
+- **禁止覆盖原图**：图生图保存路径必须是新文件名（追加 `_v2` / `_edited` / 序号），原始文件不得修改或删除。
+- **密钥安全**：生成期密钥由 `process.env["INTEGRATIONS_API_KEY"]` 注入；Edge Function 用 `Deno.env.get("INTEGRATIONS_API_KEY")`，严禁暴露到前端。
+- **文件上传限制**：编辑接口最多支持 3 张图片（`image[0]` 必填），需确保图片格式和大小符合上游要求。
+- **错误处理**：`429` 配额耗尽 / `402` 余额不足 / `400` 参数错误 / `401` 认证失败。
 - **计费**：本插件未启用计费（`enable_billing: false`），但仍需确保 API Key 有效且配额充足。
 

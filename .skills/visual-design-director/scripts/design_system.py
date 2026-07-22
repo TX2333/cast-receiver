@@ -137,6 +137,9 @@ def _auto_theme_search(query: str, app_type: str) -> dict:
         ctx = str(row[i_ctx] or "")
         if not title or not ctx:
             continue
+        # 「自动」是 CMS 占位行，不参与 BM25 检索
+        if title.strip() in {"自动", "auto", "automatic"}:
+            continue
         title_docs.append(title)
         desc_docs.append(str(row[i_desc] or ""))
         context_docs.append(ctx)
