@@ -75,6 +75,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.5",
+    "@expo/config-plugins": "55.0.11",
     "@expo/metro-runtime": "55.0.11",
     "@types/react": "~19.2.14",
     "babel-preset-expo": "55.0.6",
