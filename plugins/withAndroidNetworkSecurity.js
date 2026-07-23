@@ -16,8 +16,9 @@ function withAndroidNetworkSecurity(config) {
     if (!manifest.application) manifest.application = [{}];
     if (!manifest.application[0].$) manifest.application[0].$ = {};
 
-    // 设置 networkSecurityConfig
+    // 设置 networkSecurityConfig 和允许明文流量
     manifest.application[0].$['android:networkSecurityConfig'] = '@xml/network_security_config';
+    manifest.application[0].$['android:usesCleartextTraffic'] = 'true';
 
     // 复制 network_security_config.xml 到 res/xml/
     const projectRoot = config.modRequest.projectRoot;
