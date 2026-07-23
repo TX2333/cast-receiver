@@ -17,7 +17,7 @@ workflows:
     scripts:
       - name: Install pnpm
         script: |
-          npm install -g pnpm@9
+          npm install -g pnpm@9 --force
       - name: Install dependencies
         script: |
           pnpm install --frozen-lockfile=false
