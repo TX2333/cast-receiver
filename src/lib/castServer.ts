@@ -1,344 +1,173 @@
-/**
- * 投屏服务器模块 v2
- * ─────────────────────────────────────────────────
- * 设备发现：App 启动后定期向 Supabase cast_sessions 表 upsert 自身在线状态，
- *           发送端（网页/其他 App）查询该表即可发现局域网内所有接收端。
- *
- * 投屏指令：发送端向 cast_commands 表 insert 指令，接收端每 1.5s 轮询读取。
- *
- * Web 预览：BroadcastChannel 模拟（同浏览器多标签互通，供演示用）。
- */
+import { Platform } from 'react-native';
+import { CastReceiverApi } from './castReceiver';
+import { sendControlCommand } from './castControl';
+import { getDeviceId } from './device';
+import { supabase } from '../client/supabase';
 
-import * as Network from 'expo-network';
-import { supabase } from '@/client/supabase';
-import * as Crypto from 'expo-crypto';
+export type DeviceInfo = {
+  id: string;
+  name: string;
+  type: 'dlna' | 'miracast' | 'airplay' | 'lelink';
+  ip: string;
+  location?: string;
+};
 
-// ─── 消息类型定义 ─────────────────────────────────────────────────────────────
-export type CastMessageType =
-  | 'play'
-  | 'playlist'
-  | 'subtitle'
-  | 'pause'
-  | 'resume'
-  | 'seek'
-  | 'stop'
-  | 'ping'
-  | 'pong';
+export type CastPayload = {
+  url: string;
+  title?: string;
+  type?: 'video' | 'audio' | 'image';
+  position?: number;
+};
 
-export interface VideoItem {
+export type CastServerStatus = {
+  running: boolean;
+  ip: string;
+  port: number;
+  deviceId: string;
+  friendlyName: string;
+};
+
+// Types used by playerContext and other modules
+export type VideoItem = {
   id: string;
   url: string;
   title: string;
-  duration?: number;
+  type?: 'video' | 'audio' | 'image';
   subtitleUrl?: string;
-}
+};
 
-export interface SubtitleData {
-  videoId: string;
-  format: 'srt' | 'ass' | 'vtt';
+export type SubtitleData = {
   content: string;
+  language?: string;
+  label?: string;
+};
+
+let _status: CastServerStatus = {
+  running: false,
+  ip: '',
+  port: 0,
+  deviceId: '',
+  friendlyName: '投屏助手',
+};
+
+let _onIncomingCast: ((payload: CastPayload) => void) | null = null;
+let _onControl: ((action: string, params?: any) => void) | null = null;
+
+export function setIncomingCastHandler(handler: (payload: CastPayload) => void) {
+  _onIncomingCast = handler;
 }
 
-export interface CastMessage {
-  type: CastMessageType;
-  payload?: VideoItem | VideoItem[] | SubtitleData | { position?: number } | null;
-  timestamp: number;
+export function setControlHandler(handler: (action: string, params?: any) => void) {
+  _onControl = handler;
 }
 
-export type ServerStatus = 'idle' | 'starting' | 'running' | 'stopped';
+export async function startCastServer(): Promise<CastServerStatus> {
+  if (_status.running) return _status;
 
-export interface CastServerState {
-  status: ServerStatus;
-  port: number;
-  localIp: string;
-  clientCount: number;
-  deviceId: string;
-  deviceName: string;
-}
+  const deviceId = await getDeviceId();
+  const friendlyName = `投屏助手-${deviceId.slice(0, 4).toUpperCase()}`;
+  const uuid = `cast-receiver-${deviceId}`;
 
-export type OnMessageCallback = (msg: CastMessage) => void;
-export type OnStatusCallback = (state: CastServerState) => void;
-
-const DEFAULT_PORT = 7788;
-const HEARTBEAT_INTERVAL = 8000;   // 每 8s 刷新 last_seen
-const POLL_INTERVAL = 1500;        // 每 1.5s 拉取新指令
-const SESSION_EXPIRE_SEC = 20;     // 超过 20s 未心跳视为离线
-
-// ─── 获取本机局域网 IP（IPv4） ────────────────────────────────────────────────
-function isIPv4(ip: string): boolean {
-  return /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(ip);
-}
-
-export async function getLocalIp(): Promise<string> {
-  try {
-    const state = await Network.getNetworkStateAsync();
-    // 优先使用真实网络连接（非 VPN / 回环）
-    if (state.type === Network.NetworkStateType.WIFI ||
-        state.type === Network.NetworkStateType.CELLULAR ||
-        state.type === Network.NetworkStateType.OTHER) {
-      const ip = await Network.getIpAddressAsync();
-      if (ip && isIPv4(ip) && ip !== '0.0.0.0' && ip !== '127.0.0.1') return ip;
-    }
-    // 回退：直接取 IP
-    const ip = await Network.getIpAddressAsync();
-    if (ip && isIPv4(ip)) return ip;
-    return '192.168.x.x';
-  } catch {
-    return '192.168.x.x';
-  }
-}
-
-// ─── 生成二维码内容 ───────────────────────────────────────────────────────────
-export function buildQrPayload(deviceId: string): string {
-  return JSON.stringify({
-    service: 'screencast-receiver',
-    version: '2',
-    deviceId,
-  });
-}
-
-// ─── CastServer ──────────────────────────────────────────────────────────────
-class CastServer {
-  private port = DEFAULT_PORT;
-  private localIp = '127.0.0.1';
-  private status: ServerStatus = 'idle';
-  private clientCount = 0;
-  private deviceId = '';
-  private deviceName = '投屏助手';
-
-  private onMessage: OnMessageCallback | null = null;
-  private onStatus: OnStatusCallback | null = null;
-
-  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
-  private pollTimer: ReturnType<typeof setInterval> | null = null;
-  private lastCommandId = 0;
-
-  // Web 模拟
-  private broadcastChannel: BroadcastChannel | null = null;
-
-  setOnMessage(cb: OnMessageCallback) { this.onMessage = cb; }
-  setOnStatus(cb: OnStatusCallback) { this.onStatus = cb; }
-
-  getState(): CastServerState {
-    return {
-      status: this.status,
-      port: this.port,
-      localIp: this.localIp,
-      clientCount: this.clientCount,
-      deviceId: this.deviceId,
-      deviceName: this.deviceName,
-    };
-  }
-
-  // ─── 启动 ─────────────────────────────────────────────────────────────────
-  async start(): Promise<void> {
-    if (this.status === 'running') return;
-    this.status = 'starting';
-    this.emit();
-
-    try {
-      this.localIp = await getLocalIp();
-
-      // 生成/恢复设备 ID（每次启动固定，不持久化以防 Web 串号）
-      this.deviceId = await Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.SHA256,
-        `screencast-${this.localIp}-${this.port}`
-      );
-      this.deviceId = this.deviceId.slice(0, 16); // 取前 16 字符
-
-      this.emit();
-
-      if (process.env.EXPO_OS === 'web') {
-        this.startWebMode();
-      } else {
-        await this.startNativeMode();
-      }
-    } catch (e) {
-      console.warn('[castServer] start failed:', e);
-      // 即使 Supabase/网络失败，也标记为 running 让 UI 不卡死
-      this.status = 'running';
-      this.emit();
-    }
-  }
-
-  // ─── Web 模式（BroadcastChannel 模拟）───────────────────────────────────
-  private startWebMode() {
-    this.broadcastChannel = new BroadcastChannel('cast-channel');
-    this.broadcastChannel.onmessage = (e: MessageEvent) => {
-      this.handleMessage(e.data as CastMessage);
-    };
-    this.status = 'running';
-    this.clientCount = 1;
-    this.emit();
-  }
-
-  // ─── 原生模式（Supabase 心跳 + 轮询）───────────────────────────────────
-  private async startNativeMode() {
-    // 首次上线（失败不影响服务器运行）
-    try {
-      await this.upsertSession();
-    } catch (e) {
-      console.warn('[castServer] initial upsertSession failed:', e);
-    }
-    this.status = 'running';
-    this.emit();
-
-    // 心跳：定期刷新 last_seen
-    this.heartbeatTimer = setInterval(() => {
-      this.upsertSession().catch((e) => console.warn('[castServer] heartbeat failed:', e));
-    }, HEARTBEAT_INTERVAL);
-
-    // 指令轮询
-    this.pollTimer = setInterval(() => {
-      this.pollCommands().catch((e) => console.warn('[castServer] pollCommands failed:', e));
-    }, POLL_INTERVAL);
-  }
-
-  // ─── Upsert 在线会话 ──────────────────────────────────────────────────
-  private async upsertSession() {
-    try {
-      await supabase.from('cast_sessions').upsert(
-        {
-          device_id: this.deviceId,
-          device_name: this.deviceName,
-          ip: this.localIp,
-          port: this.port,
-          last_seen: new Date().toISOString(),
-        },
-        { onConflict: 'device_id' }
-      );
-    } catch (e) {
-      console.warn('[castServer] upsertSession failed:', e);
-    }
-  }
-
-  // ─── 轮询指令 ─────────────────────────────────────────────────────────
-  private async pollCommands() {
-    try {
-      const { data } = await supabase
-        .from('cast_commands')
-        .select('id, type, payload')
-        .eq('device_id', this.deviceId)
-        .gt('id', this.lastCommandId)
-        .order('id', { ascending: true })
-        .limit(20);
-
-      if (!data || data.length === 0) return;
-
-      // 记录最新 id，防止重复处理
-      this.lastCommandId = data[data.length - 1].id;
-
-      // 删除已处理指令（保持表干净）
-      const ids = data.map((r) => r.id);
-      await supabase.from('cast_commands').delete().in('id', ids);
-
-      // 处理指令
-      for (const row of data) {
-        const msg: CastMessage = {
-          type: row.type as CastMessageType,
-          payload: row.payload,
-          timestamp: Date.now(),
-        };
-        this.handleMessage(msg);
-      }
-    } catch (e) {
-      console.warn('[castServer] pollCommands failed:', e);
-    }
-  }
-
-  // ─── 停止 ─────────────────────────────────────────────────────────────
-  async stop() {
-    // 先清定时器，防止 upsertSession / pollCommands 在 await 删除期间再次触发
-    if (this.heartbeatTimer) { clearInterval(this.heartbeatTimer); this.heartbeatTimer = null; }
-    if (this.pollTimer) { clearInterval(this.pollTimer); this.pollTimer = null; }
-    if (this.broadcastChannel) { this.broadcastChannel.close(); this.broadcastChannel = null; }
-
-    // 从数据库删除在线记录（带超时保护，避免网络慢时卡住 App 退出）
-    if (this.deviceId) {
-      try {
-        const deletePromise = supabase
-          .from('cast_sessions')
-          .delete()
-          .eq('device_id', this.deviceId);
-        const timeoutPromise = new Promise<void>((resolve) => setTimeout(resolve, 3000));
-        await Promise.race([deletePromise, timeoutPromise]);
-      } catch (e) {
-        console.warn('[castServer] deleteSession failed:', e);
-      }
-    }
-
-    this.status = 'stopped';
-    this.clientCount = 0;
-    this.emit();
-  }
-
-  // ─── 注入消息（演示/测试）────────────────────────────────────────────
-  injectMessage(msg: CastMessage) {
-    if (process.env.EXPO_OS === 'web') {
-      this.broadcastChannel?.postMessage(msg);
-    } else {
-      this.handleMessage(msg);
-    }
-  }
-
-  private handleMessage(msg: CastMessage) {
-    if (msg.type === 'ping') return;
-    this.onMessage?.(msg);
-  }
-
-  private emit() {
-    this.onStatus?.(this.getState());
-  }
-}
-
-export const castServer = new CastServer();
-
-// ─── 查询在线设备列表（供发送端使用）────────────────────────────────────────
-export interface OnlineDevice {
-  deviceId: string;
-  deviceName: string;
-  ip: string;
-  port: number;
-  lastSeen: string;
-}
-
-export async function fetchOnlineDevices(): Promise<OnlineDevice[]> {
-  try {
-    const since = new Date(Date.now() - SESSION_EXPIRE_SEC * 1000).toISOString();
-    const { data } = await supabase
-      .from('cast_sessions')
-      .select('device_id, device_name, ip, port, last_seen')
-      .gte('last_seen', since)
-      .order('last_seen', { ascending: false })
-      .limit(50);
-
-    return (data ?? []).map((r) => ({
-      deviceId: r.device_id,
-      deviceName: r.device_name,
-      ip: r.ip,
-      port: r.port,
-      lastSeen: r.last_seen,
-    }));
-  } catch (e) {
-    console.warn('[castServer] fetchOnlineDevices failed:', e);
-    return [];
-  }
-}
-
-// ─── 发送投屏指令（发送端调用）───────────────────────────────────────────────
-export async function sendCastCommand(
-  deviceId: string,
-  type: CastMessageType,
-  payload?: CastMessage['payload']
-): Promise<void> {
-  try {
-    await supabase.from('cast_commands').insert({
-      device_id: deviceId,
-      type,
-      payload: payload ?? null,
+  if (Platform.OS === 'android') {
+    CastReceiverApi.setListeners({
+      onPlay: (url, title) => {
+        _onIncomingCast?.({ url, title, type: 'video' });
+      },
+      onPause: () => _onControl?.('pause'),
+      onResume: () => _onControl?.('play'),
+      onSeek: (target) => {
+        // target is "HH:MM:SS" format
+        const parts = target.split(':').map(Number);
+        const ms = ((parts[0] * 3600) + (parts[1] * 60) + parts[2]) * 1000;
+        _onControl?.('seek', { position: ms });
+      },
+      onStop: () => _onControl?.('stop'),
+      onVolume: (v) => _onControl?.('volume', { volume: v / 100 }),
+      onNext: () => _onControl?.('next'),
+      onPrevious: () => _onControl?.('previous'),
+      onStarted: (s) => {
+        _status.ip = s.ip;
+        _status.port = s.port;
+        _status.friendlyName = s.friendlyName;
+        _status.running = true;
+      },
+      onError: (msg) => console.warn('[CastServer] DLNA error:', msg),
     });
-  } catch (e) {
-    console.warn('[castServer] sendCastCommand failed:', e);
+
+    const state = await CastReceiverApi.start({
+      friendlyName,
+      uuid,
+    });
+
+    _status = {
+      running: true,
+      ip: state.ip,
+      port: state.port,
+      deviceId,
+      friendlyName: state.friendlyName,
+    };
+  } else {
+    // iOS: placeholder (would need native module too)
+    _status = {
+      running: true,
+      ip: '',
+      port: 0,
+      deviceId,
+      friendlyName,
+    };
+  }
+
+  // Register device in Supabase for remote discovery fallback
+  try {
+    await supabase.from('devices').upsert({
+      id: deviceId,
+      name: friendlyName,
+      ip: _status.ip,
+      port: _status.port,
+      last_seen: new Date().toISOString(),
+    });
+  } catch {}
+
+  return _status;
+}
+
+export async function stopCastServer() {
+  if (Platform.OS === 'android') {
+    CastReceiverApi.stop();
+  }
+  _status.running = false;
+}
+
+export function getCastStatus(): CastServerStatus {
+  return { ..._status };
+}
+
+export async function discoverDevices(timeoutMs = 3000): Promise<DeviceInfo[]> {
+  if (Platform.OS === 'android') {
+    return CastReceiverApi.discover(timeoutMs);
+  }
+  return [];
+}
+
+export async function castToDevice(device: DeviceInfo, payload: CastPayload) {
+  if (device.type === 'dlna' && device.location) {
+    const baseUrl = device.location.replace('/description.xml', '');
+    await sendControlCommand(baseUrl, payload);
   }
 }
 
+export function updatePlaybackState(state: { positionMs: number; durationMs: number; isPlaying: boolean; volume: number }) {
+  if (Platform.OS === 'android') {
+    CastReceiverApi.updateState(state);
+  }
+}
+
+// Build QR code payload that phone cameras can recognize.
+// Returns a URL that can be scanned; the sender page can parse deviceId/token from query params.
+export function buildQrPayload(deviceId: string, token?: string, ip?: string, port?: number): string {
+  const params = new URLSearchParams({ d: deviceId });
+  if (token) params.set('t', token);
+  if (ip) params.set('ip', ip);
+  if (port) params.set('p', String(port));
+  return `https://cast.local/pair?${params.toString()}`;
+}

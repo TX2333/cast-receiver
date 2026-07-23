@@ -1,676 +1,805 @@
 package expo.modules.castreceiver
 
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.wifi.WifiManager
 import android.os.Build
-import android.os.IBinder
-import android.util.Log
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
-import java.io.BufferedReader
-import java.io.InputStreamReader
 import java.net.DatagramPacket
 import java.net.DatagramSocket
+import java.net.HttpURLConnection
 import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.MulticastSocket
 import java.net.NetworkInterface
 import java.net.ServerSocket
-import java.net.Socket
 import java.net.SocketTimeoutException
-import java.nio.charset.StandardCharsets
+import java.net.URL
 import java.util.Collections
-import java.util.Enumeration
 import java.util.UUID
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicBoolean
+import org.json.JSONObject
+
+data class DlnaConfig(
+  var port: Int = 0,
+  var ip: String = "",
+  var friendlyName: String = "投屏助手",
+  var uuid: String = ""
+)
+
+data class PlaybackStateNative(
+  var positionMs: Int = 0,
+  var durationMs: Int = 0,
+  var isPlaying: Boolean = false,
+  var volume: Float = 0.5f
+)
 
 class CastReceiverModule : Module() {
+  private val reactContext: Context get() = requireNotNull(appContext.reactContext) { "No react context" }
+
+  @Volatile private var running = false
+  private var multicastLock: WifiManager.MulticastLock? = null
+
+  private val config = DlnaConfig()
+  private val playbackState = PlaybackStateNative()
+
+  private var ssdpSocket: MulticastSocket? = null
+  private var ssdpNotifySocket: DatagramSocket? = null
+  private var httpServerSocket: ServerSocket? = null
+  private var httpPort: Int = 0
+  private var localIp: String = ""
+  private var activeIface: NetworkInterface? = null
+
+  private val ssdpThreads = mutableListOf<Thread>()
+  private val httpThreads = mutableListOf<Thread>()
+
+  // ──────────────────────────────────────────────
+  //  Expo Module Definition
+  // ──────────────────────────────────────────────
   override fun definition() = ModuleDefinition {
     Name("CastReceiver")
 
-    Function("getDeviceId") {
-      val prefs = appContext.reactContext?.getSharedPreferences("cast_receiver_prefs", Context.MODE_PRIVATE)
-      var id = prefs?.getString("device_id", null)
-      if (id == null) {
-        id = UUID.randomUUID().toString()
-        prefs?.edit()?.putString("device_id", id)?.apply()
-      }
-      id
+    AsyncFunction("start") { cfg: Map<String, Any?> ->
+      config.port = (cfg["port"] as? Number)?.toInt() ?: 0
+      config.ip = cfg["ip"] as? String ?: ""
+      config.friendlyName = cfg["friendlyName"] as? String ?: "投屏助手"
+      val uid = cfg["uuid"] as? String
+      config.uuid = if (uid.isNullOrBlank()) UUID.randomUUID().toString() else uid
+      startInternal()
+      // Return the server info directly so JS doesn't need to wait for event
+      mapOf(
+        "ip" to localIp,
+        "port" to httpPort,
+        "friendlyName" to config.friendlyName,
+        "uuid" to config.uuid
+      )
     }
 
-    AsyncFunction("startAsync") { deviceName: String ->
-      startService(deviceName)
+    Function("stop") {
+      stopInternal()
     }
 
-    AsyncFunction("stopAsync") {
-      stopService()
+    Function("updateState") { state: Map<String, Any?> ->
+      playbackState.positionMs = (state["positionMs"] as? Number)?.toInt() ?: 0
+      playbackState.durationMs = (state["durationMs"] as? Number)?.toInt() ?: 0
+      playbackState.isPlaying = state["isPlaying"] as? Boolean ?: false
+      // JS sends volume as 0-100 integer, convert to 0-1 float
+      val vol = (state["volume"] as? Number)?.toFloat() ?: 50f
+      playbackState.volume = (vol / 100f).coerceIn(0f, 1f)
     }
 
-    Function("isRunning") {
-      isRunning.get()
+    AsyncFunction("discover") { timeoutMs: Int ->
+      discoverInternal(timeoutMs)
     }
-
-    Events("onPlay", "onPause", "onStop", "onSeek", "onVolume", "onError")
 
     OnDestroy {
-      stopService()
+      stopInternal()
     }
   }
 
-  companion object {
-    private const val TAG = "CastReceiverModule"
-    private const val SSDP_PORT = 1900
-    private const val SSDP_ADDR = "239.255.255.250"
-    private const val NOTIFY_INTERVAL_MS = 30_000L
-    private const val CHANNEL_ID = "cast_receiver_channel"
-    private const val NOTIFICATION_ID = 9527
-  }
-
-  private val running = AtomicBoolean(false)
-  private val isRunning = AtomicBoolean(false)
-  private val uuid: String by lazy {
-    val prefs = appContext.reactContext?.getSharedPreferences("cast_receiver_prefs", Context.MODE_PRIVATE)
-    var id = prefs?.getString("device_id", null)
-    if (id == null) {
-      id = UUID.randomUUID().toString()
-      prefs?.edit()?.putString("device_id", id)?.apply()
-    }
-    id!!
-  }
-
-  private var deviceName = "投屏助手"
-  private var httpPort = 0
-  private var localIp: String = "0.0.0.0"
-  private var activeInterface: NetworkInterface? = null
-
-  private var httpServerThread: Thread? = null
-  private var ssdpListenerThread: Thread? = null
-  private var ssdpNotifyThread: Thread? = null
-  private var serverSocket: ServerSocket? = null
-  private var multicastSocket: MulticastSocket? = null
-  private var notifySocket: DatagramSocket? = null
-  private var multicastLock: WifiManager.MulticastLock? = null
-  private var startedLatch = CountDownLatch(1)
-
-  private fun emit(eventName: String, body: Map<String, Any?> = emptyMap()) {
+  // ──────────────────────────────────────────────
+  //  Event dispatch helper (avoid name clash with Module.sendEvent)
+  // ──────────────────────────────────────────────
+  private fun dispatchEvent(name: String, body: String?) {
     try {
-      sendEvent(eventName, body)
-    } catch (e: Exception) {
-      Log.e(TAG, "emit $eventName failed", e)
+      if (body == null) {
+        sendEvent(name, emptyMap<String, Any?>())
+        return
+      }
+      val args = try {
+        val obj = JSONObject(body)
+        val map = mutableMapOf<String, Any?>()
+        val keys = obj.keys()
+        while (keys.hasNext()) {
+          val k = keys.next()
+          val v = obj.get(k)
+          map[k] = when {
+            v === JSONObject.NULL -> null
+            v is JSONObject -> {
+              val inner = mutableMapOf<String, Any?>()
+              val ik = v.keys()
+              while (ik.hasNext()) {
+                val k2 = ik.next()
+                val v2 = v.get(k2)
+                inner[k2] = if (v2 === JSONObject.NULL) null else v2
+              }
+              inner
+            }
+            else -> v
+          }
+        }
+        map
+      } catch (_: Exception) {
+        mapOf("value" to body)
+      }
+      sendEvent(name, args)
+    } catch (_: Exception) {}
+  }
+
+  // ──────────────────────────────────────────────
+  //  SSDP DISCOVER (client mode - find other renderers)
+  // ──────────────────────────────────────────────
+  private fun discoverInternal(timeoutMs: Int): List<Map<String, String>> {
+    val results = mutableListOf<Map<String, String>>()
+    val seenLocations = Collections.synchronizedSet(mutableSetOf<String>())
+
+    try {
+      val socket = DatagramSocket()
+      socket.broadcast = true
+      socket.soTimeout = timeoutMs
+
+      val localAddr = detectLocalAddress()
+      if (localAddr != null) {
+        val nic = NetworkInterface.getByInetAddress(localAddr)
+        if (nic != null) {
+          try { socket.networkInterface = nic } catch (_: Exception) {}
+        }
+      }
+
+      val searchTarget = "urn:schemas-upnp-org:device:MediaRenderer:1"
+      val mx = (timeoutMs / 1000).coerceAtLeast(1).coerceAtMost(5)
+      val msearch = buildMSearchRequest(mx, searchTarget)
+
+      val sendData = msearch.toByteArray(Charsets.UTF_8)
+      val multiGroup = InetAddress.getByName(SSDP_ADDR)
+      val pkt = DatagramPacket(sendData, sendData.size, InetSocketAddress(multiGroup, SSDP_PORT))
+      socket.send(pkt)
+      try {
+        val bcast = DatagramPacket(sendData, sendData.size, InetSocketAddress("255.255.255.255", SSDP_PORT))
+        socket.send(bcast)
+      } catch (_: Exception) {}
+
+      val buf = ByteArray(2048)
+      val deadline = System.currentTimeMillis() + timeoutMs
+      while (System.currentTimeMillis() < deadline) {
+        try {
+          val recvPkt = DatagramPacket(buf, buf.size)
+          socket.receive(recvPkt)
+          val response = String(recvPkt.data, 0, recvPkt.length, Charsets.UTF_8)
+          if (response.startsWith("HTTP/1.1 200 OK", ignoreCase = true)) {
+            val location = extractHeader(response, "LOCATION") ?: extractHeader(response, "Location") ?: continue
+            if (!seenLocations.add(location)) continue
+            val st = extractHeader(response, "ST") ?: extractHeader(response, "st") ?: ""
+            val usn = extractHeader(response, "USN") ?: extractHeader(response, "usn") ?: ""
+            if (st.contains("MediaRenderer") || st == "ssdp:all" || st == "upnp:rootdevice") {
+              val friendlyName = fetchFriendlyName(location)
+              results.add(mapOf(
+                "location" to location,
+                "friendlyName" to friendlyName,
+                "udn" to usn
+              ))
+            }
+          }
+        } catch (_: SocketTimeoutException) {
+          break
+        } catch (_: Exception) {
+          // continue
+        }
+      }
+      socket.close()
+    } catch (_: Exception) {
+    }
+
+    return results
+  }
+
+  private fun buildMSearchRequest(mx: Int, st: String): String {
+    return "M-SEARCH * HTTP/1.1\r\n" +
+      "HOST: $SSDP_ADDR:$SSDP_PORT\r\n" +
+      "MAN: \"ssdp:discover\"\r\n" +
+      "MX: $mx\r\n" +
+      "ST: $st\r\n" +
+      "\r\n"
+  }
+
+  private fun extractHeader(response: String, name: String): String? {
+    val lines = response.split("\r\n", "\n")
+    for (line in lines) {
+      val idx = line.indexOf(':')
+      if (idx > 0) {
+        val key = line.substring(0, idx).trim()
+        if (key.equals(name, ignoreCase = true)) {
+          return line.substring(idx + 1).trim()
+        }
+      }
+    }
+    return null
+  }
+
+  private fun fetchFriendlyName(location: String): String {
+    return try {
+      val url = URL(location)
+      val conn = url.openConnection() as HttpURLConnection
+      conn.connectTimeout = 3000
+      conn.readTimeout = 3000
+      conn.requestMethod = "GET"
+      val body = conn.inputStream.bufferedReader().use { it.readText() }
+      val startTag = "<friendlyName>"
+      val endTag = "</friendlyName>"
+      val s = body.indexOf(startTag)
+      val e = body.indexOf(endTag)
+      if (s >= 0 && e > s) body.substring(s + startTag.length, e).trim() else "投屏设备"
+    } catch (_: Exception) {
+      "投屏设备"
     }
   }
 
-  private fun startService(name: String) {
-    if (running.getAndSet(true)) return
-    deviceName = name.ifBlank { "投屏助手" }
+  // ──────────────────────────────────────────────
+  //  START / STOP
+  // ──────────────────────────────────────────────
+  private fun startInternal() {
+    if (running) stopInternal()
+    running = true
 
+    acquireMulticastLock()
+
+    // Start foreground service to keep process alive on Android 12+
     try {
-      ensureNotificationChannel()
-      val ctx = appContext.reactContext ?: throw IllegalStateException("React context not available")
+      val ctx = reactContext
       val intent = Intent(ctx, CastReceiverService::class.java)
+      intent.putExtra("friendlyName", config.friendlyName)
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
         ctx.startForegroundService(intent)
       } else {
         ctx.startService(intent)
       }
-    } catch (e: Exception) {
-      Log.w(TAG, "Failed to start foreground service, continuing without it", e)
-    }
+    } catch (_: Exception) {}
 
-    startedLatch = CountDownLatch(1)
-    httpServerThread = Thread(::runHttpServer, "cast-http-server").apply { isDaemon = true; start() }
-
-    try {
-      startedLatch.await(5, TimeUnit.SECONDS)
-    } catch (_: InterruptedException) {}
-
-    if (httpPort == 0) {
-      Log.e(TAG, "HTTP server failed to start")
-      running.set(false)
-      throw RuntimeException("Failed to start HTTP server")
-    }
-
-    acquireMulticastLock()
-
-    ssdpListenerThread = Thread(::runSsdpListener, "cast-ssdp-listener").apply { isDaemon = true; start() }
-    ssdpNotifyThread = Thread(::runSsdpNotify, "cast-ssdp-notify").apply { isDaemon = true; start() }
-
-    isRunning.set(true)
-    Log.i(TAG, "Cast receiver started on $localIp:$httpPort (uuid=$uuid)")
-  }
-
-  private fun stopService() {
-    if (!running.getAndSet(false)) return
-    isRunning.set(false)
-
-    try { sendByebye() } catch (_: Exception) {}
-
-    multicastLock?.release()
-    multicastLock = null
-
-    try { serverSocket?.close() } catch (_: Exception) {}
-    try { multicastSocket?.close() } catch (_: Exception) {}
-    try { notifySocket?.close() } catch (_: Exception) {}
-    serverSocket = null
-    multicastSocket = null
-    notifySocket = null
-
-    val ctx = appContext.reactContext
-    if (ctx != null) {
-      try { ctx.stopService(Intent(ctx, CastReceiverService::class.java)) } catch (_: Exception) {}
-    }
-
-    httpServerThread?.join(2000)
-    ssdpListenerThread?.join(2000)
-    ssdpNotifyThread?.join(2000)
-    httpServerThread = null
-    ssdpListenerThread = null
-    ssdpNotifyThread = null
-
-    Log.i(TAG, "Cast receiver stopped")
-  }
-
-  private fun acquireMulticastLock() {
-    try {
-      val ctx = appContext.reactContext ?: return
-      val wifi = ctx.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager ?: return
-      multicastLock = wifi.createMulticastLock("castReceiverLock").apply {
-        setReferenceCounted(false)
-        acquire()
+    val addr = detectLocalAddress()
+    if (addr != null) {
+      localIp = addr.hostAddress ?: ""
+      try {
+        activeIface = NetworkInterface.getByInetAddress(addr)
+      } catch (_: Exception) {
+        activeIface = null
       }
-      Log.i(TAG, "Multicast lock acquired")
-    } catch (e: Exception) {
-      Log.w(TAG, "Failed to acquire multicast lock (may be on ethernet)", e)
     }
+
+    httpPort = if (config.port > 0) config.port else 0
+    httpServerSocket = if (httpPort > 0) {
+      try {
+        ServerSocket(httpPort).apply { reuseAddress = true }
+      } catch (_: Exception) {
+        ServerSocket(0).apply { reuseAddress = true }
+      }
+    } else {
+      ServerSocket(0).apply { reuseAddress = true }
+    }
+    httpPort = httpServerSocket!!.localPort
+
+    dispatchEvent("onStarted", JSONObject(mapOf(
+      "ip" to localIp,
+      "port" to httpPort,
+      "friendlyName" to config.friendlyName
+    )).toString())
+
+    val t1 = Thread { runSsdpListener() }
+    t1.name = "DLNA-SSDP-Listener"
+    t1.isDaemon = true
+    t1.start()
+    ssdpThreads.add(t1)
+
+    val t2 = Thread { runSsdpNotify() }
+    t2.name = "DLNA-SSDP-Notify"
+    t2.isDaemon = true
+    t2.start()
+    ssdpThreads.add(t2)
+
+    val t3 = Thread { runHttpServer() }
+    t3.name = "DLNA-HTTP"
+    t3.isDaemon = true
+    t3.start()
+    httpThreads.add(t3)
   }
 
-  private fun detectLocalAddress(): InetAddress {
+  private fun stopInternal() {
+    running = false
+    // Stop foreground service
     try {
-      val cm = appContext.reactContext?.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+      reactContext.stopService(Intent(reactContext, CastReceiverService::class.java))
+    } catch (_: Exception) {}
+    try { ssdpSocket?.leaveGroup(InetAddress.getByName(SSDP_ADDR)) } catch (_: Exception) {}
+    try { ssdpSocket?.close() } catch (_: Exception) {}
+    try { ssdpNotifySocket?.close() } catch (_: Exception) {}
+    try { httpServerSocket?.close() } catch (_: Exception) {}
+    ssdpSocket = null
+    ssdpNotifySocket = null
+    httpServerSocket = null
+    httpThreads.forEach { it.interrupt() }
+    ssdpThreads.forEach { it.interrupt() }
+    httpThreads.clear()
+    ssdpThreads.clear()
+    releaseMulticastLock()
+  }
+
+  // ──────────────────────────────────────────────
+  //  NETWORK DETECTION (WiFi + Ethernet)
+  // ──────────────────────────────────────────────
+  private fun detectLocalAddress(): InetAddress? {
+    if (config.ip.isNotBlank()) {
+      try {
+        val a = InetAddress.getByName(config.ip)
+        if (!a.isLoopbackAddress && a is Inet4Address) {
+          return a
+        }
+      } catch (_: Exception) {}
+    }
+
+    try {
+      val cm = reactContext.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
       if (cm != null) {
-        val activeNetwork = cm.activeNetwork
-        if (activeNetwork != null) {
-          val linkProperties = cm.getLinkProperties(activeNetwork)
-          if (linkProperties != null) {
-            for (addr in linkProperties.linkAddresses) {
+        val net = cm.activeNetwork
+        if (net != null) {
+          val lp = cm.getLinkProperties(net)
+          if (lp != null) {
+            for (addr in lp.linkAddresses) {
               val a = addr.address
               if (a is Inet4Address && !a.isLoopbackAddress) {
-                val iface = NetworkInterface.getByInetAddress(a)
-                if (iface != null && iface.isUp && !iface.isLoopback) {
-                  activeInterface = iface
-                  localIp = a.hostAddress ?: "0.0.0.0"
-                  Log.i(TAG, "Detected IP from active network: $localIp (iface=${iface.name})")
-                  return a
-                }
+                return a
               }
             }
           }
         }
       }
-    } catch (e: Exception) {
-      Log.w(TAG, "Failed to detect via ConnectivityManager, falling back", e)
-    }
+    } catch (_: Exception) {}
 
     try {
-      val ifaces: Enumeration<NetworkInterface> = NetworkInterface.getNetworkInterfaces()
-      for (iface in Collections.list(ifaces)) {
-        if (!iface.isUp || iface.isLoopback) continue
-        val name = iface.name.lowercase()
-        val isPreferred = name.startsWith("wlan") || name.startsWith("eth") || name.startsWith("en") || name.startsWith("wl")
-        if (!isPreferred) continue
-        for (addr in Collections.list(iface.inetAddresses)) {
-          if (addr is Inet4Address && !addr.isLoopbackAddress) {
-            activeInterface = iface
-            localIp = addr.hostAddress ?: "0.0.0.0"
-            Log.i(TAG, "Detected IP via enumeration: $localIp (iface=${iface.name})")
-            return addr
+      val ifaces = Collections.list(NetworkInterface.getNetworkInterfaces())
+      for (nic in ifaces) {
+        if (!nic.isUp || nic.isLoopback) continue
+        val addrs = Collections.list(nic.inetAddresses)
+        for (a in addrs) {
+          if (a is Inet4Address && !a.isLoopbackAddress && !a.isLinkLocalAddress) {
+            try { activeIface = nic } catch (_: Exception) {}
+            return a
           }
         }
       }
-      for (iface in Collections.list(ifaces)) {
-        if (!iface.isUp || iface.isLoopback) continue
-        for (addr in Collections.list(iface.inetAddresses)) {
-          if (addr is Inet4Address && !addr.isLoopbackAddress) {
-            activeInterface = iface
-            localIp = addr.hostAddress ?: "0.0.0.0"
-            Log.i(TAG, "Detected IP (last resort): $localIp (iface=${iface.name})")
-            return addr
-          }
-        }
-      }
-    } catch (e: Exception) {
-      Log.e(TAG, "Failed to enumerate network interfaces", e)
-    }
-    throw RuntimeException("No suitable network interface found")
+    } catch (_: Exception) {}
+
+    return null
   }
 
-  // ---------- HTTP Server ----------
+  private fun acquireMulticastLock() {
+    try {
+      val wm = reactContext.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+      if (wm != null) {
+        multicastLock = wm.createMulticastLock("CastReceiverDLNA").also {
+          it.setReferenceCounted(false)
+          it.acquire()
+        }
+      }
+    } catch (_: Exception) {}
+  }
 
+  private fun releaseMulticastLock() {
+    try {
+      multicastLock?.release()
+    } catch (_: Exception) {}
+    multicastLock = null
+  }
+
+  // ──────────────────────────────────────────────
+  //  SSDP LISTENER (M-SEARCH responder)
+  // ──────────────────────────────────────────────
+  private fun runSsdpListener() {
+    try {
+      val sock = MulticastSocket(SSDP_PORT)
+      sock.reuseAddress = true
+      sock.soTimeout = 30000
+      ssdpSocket = sock
+
+      val group = InetAddress.getByName(SSDP_ADDR)
+      val iface = activeIface
+      if (iface != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        sock.joinGroup(InetSocketAddress(group, SSDP_PORT), iface)
+      } else {
+        sock.joinGroup(group)
+      }
+
+      val buf = ByteArray(2048)
+      while (running) {
+        try {
+          val pkt = DatagramPacket(buf, buf.size)
+          sock.receive(pkt)
+          val msg = String(pkt.data, 0, pkt.length, Charsets.UTF_8)
+          if (msg.startsWith("M-SEARCH", ignoreCase = true)) {
+            handleMSearch(msg, pkt.address, pkt.port)
+          }
+        } catch (_: SocketTimeoutException) {
+          // loop
+        } catch (_: Exception) {
+          if (running) Thread.sleep(500)
+        }
+      }
+    } catch (_: Exception) {
+      dispatchEvent("onError", JSONObject(mapOf("message" to "SSDP监听启动失败(端口1900被占用?)")).toString())
+    }
+  }
+
+  private fun handleMSearch(msg: String, senderAddr: InetAddress, senderPort: Int) {
+    val mx = extractHeaderValue(msg, "MX")?.toIntOrNull() ?: 1
+    val delay = (Math.random() * mx.coerceAtMost(5) * 1000).toLong()
+    Thread {
+      try {
+        Thread.sleep(delay)
+        val st = extractHeaderValue(msg, "ST") ?: ""
+        val responds = st == "ssdp:all" ||
+          st == "upnp:rootdevice" ||
+          st.contains("MediaRenderer") ||
+          st.contains("AVTransport") ||
+          st.contains("RenderingControl") ||
+          st.contains("ConnectionManager")
+        if (!responds) return@Thread
+
+        val usn = "uuid:${config.uuid}"
+        val location = "http://$localIp:$httpPort/description.xml"
+
+        val resp = buildMSearchResponse(usn, location, st)
+        val data = resp.toByteArray(Charsets.UTF_8)
+        // CRITICAL: unicast response directly to the sender
+        val p = DatagramPacket(data, data.size, InetSocketAddress(senderAddr, senderPort))
+        ssdpSocket?.send(p)
+      } catch (_: Exception) {}
+    }.apply {
+      name = "DLNA-MS-Resp"
+      isDaemon = true
+      start()
+    }
+  }
+
+  private fun buildMSearchResponse(usn: String, location: String, st: String): String {
+    val sb = StringBuilder()
+    sb.append("HTTP/1.1 200 OK\r\n")
+    sb.append("CACHE-CONTROL: max-age=1800\r\n")
+    sb.append("DATE: ${java.text.SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz", java.util.Locale.US).format(java.util.Date())}\r\n")
+    sb.append("EXT:\r\n")
+    sb.append("LOCATION: $location\r\n")
+    sb.append("SERVER: Linux/3.0 UPnP/1.0 CastReceiver/1.0\r\n")
+    sb.append("ST: $st\r\n")
+    sb.append("USN: $usn::$st\r\n")
+    sb.append("\r\n")
+    return sb.toString()
+  }
+
+  private fun extractHeaderValue(msg: String, key: String): String? {
+    val lines = msg.split("\r\n", "\n")
+    for (l in lines) {
+      val i = l.indexOf(':')
+      if (i > 0 && l.substring(0, i).trim().equals(key, ignoreCase = true)) {
+        return l.substring(i + 1).trim()
+      }
+    }
+    return null
+  }
+
+  // ──────────────────────────────────────────────
+  //  SSDP NOTIFY (alive/byebye)
+  // ──────────────────────────────────────────────
+  private fun runSsdpNotify() {
+    try {
+      val sock = DatagramSocket()
+      sock.broadcast = true
+      ssdpNotifySocket = sock
+
+      val group = InetAddress.getByName(SSDP_ADDR)
+      val location = "http://$localIp:$httpPort/description.xml"
+      val usn = "uuid:${config.uuid}"
+
+      for (r in 0..2) {
+        for (nt in listOf("upnp:rootdevice", "urn:schemas-upnp-org:device:MediaRenderer:1")) {
+          sendNotify(sock, group, usn, location, nt, "ssdp:alive")
+        }
+        Thread.sleep(100)
+      }
+
+      while (running) {
+        Thread.sleep(30000)
+        if (!running) break
+        for (nt in listOf("upnp:rootdevice", "urn:schemas-upnp-org:device:MediaRenderer:1")) {
+          sendNotify(sock, group, usn, location, nt, "ssdp:alive")
+        }
+      }
+
+      for (nt in listOf("upnp:rootdevice", "urn:schemas-upnp-org:device:MediaRenderer:1")) {
+        sendNotify(sock, group, usn, location, nt, "ssdp:byebye")
+      }
+    } catch (_: Exception) {}
+  }
+
+  private fun sendNotify(sock: DatagramSocket, group: InetAddress, usn: String, location: String, nt: String, nts: String) {
+    try {
+      val sb = StringBuilder()
+      sb.append("NOTIFY * HTTP/1.1\r\n")
+      sb.append("HOST: $SSDP_ADDR:$SSDP_PORT\r\n")
+      sb.append("CACHE-CONTROL: max-age=1800\r\n")
+      if (nts == "ssdp:alive") sb.append("LOCATION: $location\r\n")
+      sb.append("NT: $nt\r\n")
+      sb.append("NTS: $nts\r\n")
+      sb.append("SERVER: Linux/3.0 UPnP/1.0 CastReceiver/1.0\r\n")
+      sb.append("USN: $usn::$nt\r\n")
+      sb.append("\r\n")
+      val data = sb.toString().toByteArray(Charsets.UTF_8)
+      val pkt = DatagramPacket(data, data.size, InetSocketAddress(group, SSDP_PORT))
+      sock.send(pkt)
+    } catch (_: Exception) {}
+  }
+
+  // ──────────────────────────────────────────────
+  //  HTTP SERVER (description.xml + SOAP control + eventing)
+  // ──────────────────────────────────────────────
   private fun runHttpServer() {
-    try {
-      detectLocalAddress()
-      val addr = InetAddress.getByName(localIp)
-      serverSocket = ServerSocket()
-      serverSocket?.reuseAddress = true
-      serverSocket?.bind(InetSocketAddress(addr, 0), 50)
-      httpPort = serverSocket?.localPort ?: 0
-      startedLatch.countDown()
-      Log.i(TAG, "HTTP server listening on $localIp:$httpPort")
-
-      while (running.get()) {
-        val client: Socket = try {
-          serverSocket?.accept() ?: break
-        } catch (_: Exception) { break }
-        Thread({ handleHttpClient(client) }, "cast-http-client-${System.nanoTime()}").apply { isDaemon = true; start() }
+    val serverSock = httpServerSocket ?: return
+    while (running) {
+      try {
+        val client = serverSock.accept()
+        client.soTimeout = 10000
+        Thread {
+          try {
+            handleHttpRequest(client)
+          } catch (_: Exception) {}
+          finally {
+            try { client.close() } catch (_: Exception) {}
+          }
+        }.apply {
+          name = "DLNA-HTTP-Client-${System.nanoTime()}"
+          isDaemon = true
+          start()
+          httpThreads.add(this)
+        }
+      } catch (_: Exception) {
+        if (running) Thread.sleep(500)
       }
-    } catch (e: Exception) {
-      Log.e(TAG, "HTTP server error", e)
-      startedLatch.countDown()
     }
   }
 
-  private fun handleHttpClient(client: Socket) {
-    try {
-      client.soTimeout = 10_000
-      val reader = BufferedReader(InputStreamReader(client.getInputStream(), StandardCharsets.UTF_8))
-      val requestLine = reader.readLine() ?: return
-      Log.d(TAG, "HTTP request: $requestLine from ${client.inetAddress.hostAddress}")
+  private fun handleHttpRequest(client: java.net.Socket) {
+    val reader = client.getInputStream().bufferedReader()
+    val writer = client.getOutputStream()
 
-      val headers = mutableMapOf<String, String>()
-      while (true) {
-        val line = reader.readLine() ?: break
-        if (line.isEmpty()) break
-        val idx = line.indexOf(':')
-        if (idx > 0) headers[line.substring(0, idx).trim().lowercase()] = line.substring(idx + 1).trim()
+    var firstLine = ""
+    var contentLength = 0
+    var path = "/"
+
+    while (true) {
+      val l = reader.readLine() ?: return
+      if (l.isEmpty()) break
+      if (firstLine.isEmpty()) {
+        firstLine = l
+        val parts = l.split(" ")
+        if (parts.size >= 2) path = parts[1]
+      } else {
+        if (l.startsWith("Content-Length:", ignoreCase = true)) {
+          contentLength = l.substringAfter(':').trim().toIntOrNull() ?: 0
+        }
       }
+    }
 
-      val method = requestLine.substringBefore(' ')
-      val path = requestLine.substringAfter(' ').substringBefore(' ')
-
-      val response = when {
-        method == "GET" && (path == "/description.xml" || path.startsWith("/description.xml")) ->
-          buildDescriptionResponse()
-        method == "SUBSCRIBE" -> handleSubscribe(headers)
-        method == "POST" && path.contains("AVTransport") -> handleAvTransport(headers, reader)
-        method == "POST" && path.contains("RenderingControl") -> handleRenderingControl(headers, reader)
-        method == "POST" && path.contains("ConnectionManager") -> handleConnectionManager(headers, reader)
-        else -> buildSimpleResponse("404 Not Found", "text/plain", "Not Found")
+    var body = ""
+    if (contentLength > 0) {
+      val buf = CharArray(contentLength)
+      var read = 0
+      while (read < contentLength) {
+        val r = reader.read(buf, read, contentLength - read)
+        if (r < 0) break
+        read += r
       }
+      body = String(buf)
+    }
 
-      client.getOutputStream().write(response.toByteArray(StandardCharsets.UTF_8))
-      client.getOutputStream().flush()
-    } catch (e: Exception) {
-      Log.e(TAG, "HTTP client error", e)
-    } finally {
-      try { client.close() } catch (_: Exception) {}
+    when {
+      firstLine.startsWith("GET", ignoreCase = true) -> {
+        when {
+          path.startsWith("/description.xml") || path == "/" || path.startsWith("/index") ->
+            writeXml(writer, buildDescriptionXml())
+          else -> writeNotFound(writer)
+        }
+      }
+      firstLine.startsWith("POST", ignoreCase = true) -> handleSoap(writer, path, body)
+      firstLine.startsWith("SUBSCRIBE", ignoreCase = true) -> handleSubscribe(writer)
+      else -> writeNotFound(writer)
     }
   }
 
-  private fun buildDescriptionResponse(): String {
-    val urlBase = "http://$localIp:$httpPort"
-    val safeName = deviceName.replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
-    return """HTTP/1.1 200 OK
-Content-Type: application/xml; charset=utf-8
-Connection: close
-Cache-Control: no-cache
-Access-Control-Allow-Origin: *
-
-<?xml version="1.0"?>
-<root xmlns="urn:schemas-upnp-org:device-1-0" xmlns:dlna="urn:schemas-dlna-org:device-1-0">
+  private fun buildDescriptionXml(): String {
+    val usn = "uuid:${config.uuid}"
+    return """<?xml version="1.0"?>
+<root xmlns="urn:schemas-upnp-org:device-1-0">
   <specVersion><major>1</major><minor>0</minor></specVersion>
   <device>
     <deviceType>urn:schemas-upnp-org:device:MediaRenderer:1</deviceType>
-    <friendlyName>$safeName</friendlyName>
+    <friendlyName>${config.friendlyName}</friendlyName>
     <manufacturer>CastReceiver</manufacturer>
-    <manufacturerURL>https://example.com</manufacturerURL>
+    <manufacturerURL>http://$localIp:$httpPort</manufacturerURL>
     <modelName>CastReceiver</modelName>
-    <modelNumber>1</modelNumber>
-    <UDN>uuid:$uuid</UDN>
-    <dlna:X_DLNADOC>DMR-1.50</dlna:X_DLNADOC>
+    <modelNumber>1.0</modelNumber>
+    <UDN>$usn</UDN>
     <serviceList>
       <service>
         <serviceType>urn:schemas-upnp-org:service:AVTransport:1</serviceType>
         <serviceId>urn:upnp-org:serviceId:AVTransport</serviceId>
-        <SCPDURL>$urlBase/AVTransport/scpd.xml</SCPDURL>
-        <controlURL>$urlBase/AVTransport/control</controlURL>
-        <eventSubURL>$urlBase/AVTransport/event</eventSubURL>
+        <controlURL>/upnp/control/AVTransport</controlURL>
+        <eventSubURL>/upnp/event/AVTransport</eventSubURL>
+        <SCPDURL>/upnp/AVTransport.xml</SCPDURL>
       </service>
       <service>
         <serviceType>urn:schemas-upnp-org:service:RenderingControl:1</serviceType>
         <serviceId>urn:upnp-org:serviceId:RenderingControl</serviceId>
-        <SCPDURL>$urlBase/RenderingControl/scpd.xml</SCPDURL>
-        <controlURL>$urlBase/RenderingControl/control</controlURL>
-        <eventSubURL>$urlBase/RenderingControl/event</eventSubURL>
+        <controlURL>/upnp/control/RenderingControl</controlURL>
+        <eventSubURL>/upnp/event/RenderingControl</eventSubURL>
+        <SCPDURL>/upnp/RenderingControl.xml</SCPDURL>
       </service>
       <service>
         <serviceType>urn:schemas-upnp-org:service:ConnectionManager:1</serviceType>
         <serviceId>urn:upnp-org:serviceId:ConnectionManager</serviceId>
-        <SCPDURL>$urlBase/ConnectionManager/scpd.xml</SCPDURL>
-        <controlURL>$urlBase/ConnectionManager/control</controlURL>
-        <eventSubURL>$urlBase/ConnectionManager/event</eventSubURL>
+        <controlURL>/upnp/control/ConnectionManager</controlURL>
+        <eventSubURL>/upnp/event/ConnectionManager</eventSubURL>
+        <SCPDURL>/upnp/ConnectionManager.xml</SCPDURL>
       </service>
     </serviceList>
   </device>
-</root>""".replace("\n", "\r\n")
+</root>"""
   }
 
-  private fun handleSubscribe(headers: Map<String, String>): String {
-    val sid = "uuid:${UUID.randomUUID()}"
-    val timeout = headers["timeout"]?.replace("Second-", "")?.toIntOrNull() ?: 1800
-    return """HTTP/1.1 200 OK
-SID: $sid
-TIMEOUT: Second-$timeout
-Server: CastReceiver/1.0
-Connection: close
+  private fun handleSoap(writer: java.io.OutputStream, path: String, body: String) {
+    val actionMatch = Regex("""<u:(\w+)\s""").find(body)
+    val action = actionMatch?.groupValues?.getOrNull(1) ?: ""
 
-""".replace("\n", "\r\n")
-  }
-
-  private fun readBody(reader: BufferedReader, headers: Map<String, String>): String {
-    val len = headers["content-length"]?.toIntOrNull() ?: 0
-    if (len <= 0) return ""
-    val chars = CharArray(len)
-    var total = 0
-    while (total < len) {
-      val r = reader.read(chars, total, len - total)
-      if (r < 0) break
-      total += r
-    }
-    return String(chars, 0, total)
-  }
-
-  private fun handleAvTransport(headers: Map<String, String>, reader: BufferedReader): String {
-    val body = readBody(reader, headers)
-    val soapAction = headers["soapaction"]?.removePrefix("\"")?.removeSuffix("\"") ?: ""
-    Log.d(TAG, "AVTransport action: $soapAction")
     when {
-      soapAction.contains("SetAVTransportURI") -> {
-        val uri = extractTag(body, "CurrentURI")
-        val meta = extractTag(body, "CurrentURIMetaData")
-        if (uri.isNotBlank()) emit("onPlay", mapOf("url" to uri, "metadata" to meta))
-      }
-      soapAction.contains("Play") -> emit("onPlay", emptyMap())
-      soapAction.contains("Pause") -> emit("onPause", emptyMap())
-      soapAction.contains("Stop") -> emit("onStop", emptyMap())
-      soapAction.contains("Seek") -> {
-        val target = extractTag(body, "Target")
-        emit("onSeek", mapOf("position" to target))
-      }
-    }
-    return buildSoapResponse()
-  }
-
-  private fun handleRenderingControl(headers: Map<String, String>, reader: BufferedReader): String {
-    val body = readBody(reader, headers)
-    val soapAction = headers["soapaction"]?.removePrefix("\"")?.removeSuffix("\"") ?: ""
-    Log.d(TAG, "RenderingControl action: $soapAction")
-    when {
-      soapAction.contains("SetVolume") -> {
-        val vol = extractTag(body, "DesiredVolume").toIntOrNull() ?: 50
-        emit("onVolume", mapOf("volume" to (vol / 100.0)))
-      }
-      soapAction.contains("SetMute") -> {
-        val mute = extractTag(body, "DesiredMute").equals("1", ignoreCase = true)
-        emit("onVolume", mapOf("muted" to mute))
-      }
-    }
-    return buildSoapResponse()
-  }
-
-  private fun handleConnectionManager(headers: Map<String, String>, reader: BufferedReader): String {
-    val soapAction = headers["soapaction"]?.removePrefix("\"")?.removeSuffix("\"") ?: ""
-    Log.d(TAG, "ConnectionManager action: $soapAction")
-    return when {
-      soapAction.contains("GetProtocolInfo") -> buildSoapResponse("""<u:GetProtocolInfoResponse xmlns:u="urn:schemas-upnp-org:service:ConnectionManager:1"><Source>http-get:*:*:*</Source><Sink>http-get:*:video/*:*,http-get:*:audio/*:*,http-get:*:image/*:*</Sink></u:GetProtocolInfoResponse>""")
-      soapAction.contains("GetCurrentConnectionIDs") -> buildSoapResponse("""<u:GetCurrentConnectionIDsResponse xmlns:u="urn:schemas-upnp-org:service:ConnectionManager:1"><ConnectionIDs>0</ConnectionIDs></u:GetCurrentConnectionIDsResponse>""")
-      soapAction.contains("GetCurrentConnectionInfo") -> buildSoapResponse("""<u:GetCurrentConnectionInfoResponse xmlns:u="urn:schemas-upnp-org:service:ConnectionManager:1"><RcsID>0</RcsID><AVTransportID>0</AVTransportID><ProtocolInfo>http-get:*:*:*</ProtocolInfo><PeerConnectionManager>-1</PeerConnectionManager><PeerConnectionID>-1</PeerConnectionID><Direction>Input</Direction><Status>OK</Status></u:GetCurrentConnectionInfoResponse>""")
-      else -> buildSoapResponse()
-    }
-  }
-
-  private fun buildSoapResponse(actionXml: String = ""): String {
-    val body = if (actionXml.isBlank()) """<u:Response xmlns:u="urn:schemas-upnp-org:service:AVTransport:1"></u:Response>""" else actionXml
-    return """HTTP/1.1 200 OK
-Content-Type: text/xml; charset=utf-8
-EXT:
-Server: CastReceiver/1.0 UPnP/1.0
-Connection: close
-
-<?xml version="1.0"?>
-<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"><s:Body>$body</s:Body></s:Envelope>""".replace("\n", "\r\n")
-  }
-
-  private fun buildSimpleResponse(status: String, contentType: String, body: String): String {
-    return """HTTP/1.1 $status
-Content-Type: $contentType; charset=utf-8
-Content-Length: ${body.toByteArray(StandardCharsets.UTF_8).size}
-Connection: close
-
-$body""".replace("\n", "\r\n")
-  }
-
-  private fun extractTag(xml: String, tag: String): String {
-    val open = "<$tag>"
-    val close = "</$tag>"
-    val s = xml.indexOf(open)
-    if (s < 0) return ""
-    val e = xml.indexOf(close, s + open.length)
-    return if (e > s) xml.substring(s + open.length, e) else ""
-  }
-
-  // ---------- SSDP ----------
-
-  private fun buildSsdpNotify(nt: String, nts: String): String {
-    val usn = if (nt == "uuid:$uuid") "uuid:$uuid" else "uuid:$uuid::$nt"
-    val location = "http://$localIp:$httpPort/description.xml"
-    val maxAge = NOTIFY_INTERVAL_MS / 1000 * 2
-    return buildString {
-      append("NOTIFY * HTTP/1.1\r\n")
-      append("HOST: $SSDP_ADDR:$SSDP_PORT\r\n")
-      append("CACHE-CONTROL: max-age=$maxAge\r\n")
-      append("LOCATION: $location\r\n")
-      append("NT: $nt\r\n")
-      append("NTS: $nts\r\n")
-      append("SERVER: CastReceiver/1.0 UPnP/1.0\r\n")
-      append("USN: $usn\r\n")
-      append("\r\n")
-    }
-  }
-
-  private fun buildSsdpResponse(st: String): String {
-    val usn = when (st) {
-      "upnp:rootdevice" -> "uuid:$uuid::upnp:rootdevice"
-      "uuid:$uuid" -> "uuid:$uuid"
-      else -> "uuid:$uuid::$st"
-    }
-    val location = "http://$localIp:$httpPort/description.xml"
-    val maxAge = NOTIFY_INTERVAL_MS / 1000 * 2
-    return buildString {
-      append("HTTP/1.1 200 OK\r\n")
-      append("CACHE-CONTROL: max-age=$maxAge\r\n")
-      append("EXT:\r\n")
-      append("LOCATION: $location\r\n")
-      append("SERVER: CastReceiver/1.0 UPnP/1.0\r\n")
-      append("ST: $st\r\n")
-      append("USN: $usn\r\n")
-      append("\r\n")
-    }
-  }
-
-  private fun sendSsdpMessage(socket: DatagramSocket, message: String, address: InetAddress, port: Int) {
-    try {
-      val data = message.toByteArray(StandardCharsets.UTF_8)
-      val packet = DatagramPacket(data, data.size, address, port)
-      socket.send(packet)
-    } catch (e: Exception) {
-      Log.e(TAG, "Failed to send SSDP to $address:$port", e)
-    }
-  }
-
-  private fun runSsdpListener() {
-    var socket: MulticastSocket? = null
-    try {
-      val group = InetAddress.getByName(SSDP_ADDR)
-      socket = MulticastSocket(SSDP_PORT)
-      socket.reuseAddress = true
-      socket.soTimeout = 5000
-      socket.broadcast = true
-
-      try {
-        val iface = activeInterface
-        if (iface != null) {
-          socket.joinGroup(InetSocketAddress(group, 0), iface)
-          Log.i(TAG, "Joined SSDP on ${iface.name}")
-        } else {
-          socket.joinGroup(group)
-          Log.i(TAG, "Joined SSDP (default)")
+      action == "SetAVTransportURI" -> {
+        val uriMatch = Regex("""<CurrentURI>([^<]*)</CurrentURI>""").find(body)
+        val uri = uriMatch?.groupValues?.getOrNull(1)?.let { decodeXml(it) } ?: ""
+        if (uri.isNotEmpty()) {
+          val metaMatch = Regex("""<CurrentURIMetaData>([\s\S]*?)</CurrentURIMetaData>""").find(body)
+          val metaRaw = metaMatch?.groupValues?.getOrNull(1)?.let { decodeXml(it) } ?: ""
+          var title = "视频"
+          val titleMatch = Regex("""<dc:title>([^<]*)</dc:title>""").find(metaRaw)
+          if (titleMatch != null) title = decodeXml(titleMatch.groupValues[1])
+          dispatchEvent("onPlay", JSONObject(mapOf(
+            "url" to uri,
+            "title" to title
+          )).toString())
         }
-      } catch (e: Exception) {
-        Log.w(TAG, "joinGroup with iface failed, trying default", e)
-        try { socket.joinGroup(group) } catch (e2: Exception) { Log.e(TAG, "joinGroup failed", e2) }
+        writeSoapResponse(writer, action)
       }
-
-      multicastSocket = socket
-      val buf = ByteArray(2048)
-
-      while (running.get()) {
-        try {
-          val packet = DatagramPacket(buf, buf.size)
-          socket.receive(packet)
-          val text = String(packet.data, packet.offset, packet.length, StandardCharsets.UTF_8)
-          if (text.startsWith("M-SEARCH", ignoreCase = true)) {
-            handleMSearch(text, packet.address, packet.port, socket)
-          }
-        } catch (_: SocketTimeoutException) {
-        } catch (e: Exception) {
-          if (running.get()) Log.e(TAG, "SSDP receive error", e)
+      action in setOf("Play", "Pause", "Stop", "Next", "Previous") -> {
+        val event = when (action) {
+          "Play" -> "onResume"
+          "Pause" -> "onPause"
+          "Stop" -> "onStop"
+          "Next" -> "onNext"
+          "Previous" -> "onPrevious"
+          else -> ""
         }
+        if (event.isNotEmpty()) dispatchEvent(event, null)
+        writeSoapResponse(writer, action)
       }
-    } catch (e: Exception) {
-      Log.e(TAG, "SSDP listener fatal", e)
-    } finally {
-      try { socket?.close() } catch (_: Exception) {}
-      if (multicastSocket === socket) multicastSocket = null
+      action == "Seek" -> {
+        val targetMatch = Regex("""<Target>([^<]*)</Target>""").find(body)
+        val target = targetMatch?.groupValues?.getOrNull(1) ?: "00:00:00"
+        dispatchEvent("onSeek", JSONObject(mapOf("target" to target)).toString())
+        writeSoapResponse(writer, action)
+      }
+      action == "SetVolume" -> {
+        val volMatch = Regex("""<DesiredVolume>([^<]*)</DesiredVolume>""").find(body)
+        val vol = volMatch?.groupValues?.getOrNull(1)?.toIntOrNull()
+        if (vol != null) {
+          playbackState.volume = vol / 100f
+          dispatchEvent("onVolume", vol.toString())
+        }
+        writeSoapResponse(writer, action)
+      }
+      action == "SetMute" -> {
+        writeSoapResponse(writer, action)
+      }
+      action == "GetPositionInfo" -> {
+        writeSoapResult(writer, action, """
+          <Track>0</Track>
+          <TrackDuration>${formatTime(playbackState.durationMs)}</TrackDuration>
+          <RelTime>${formatTime(playbackState.positionMs)}</RelTime>
+          <AbsTime>${formatTime(playbackState.positionMs)}</AbsTime>
+        """.trimIndent())
+      }
+      action == "GetTransportInfo" -> {
+        val state = if (playbackState.isPlaying) "PLAYING" else "PAUSED_PLAYBACK"
+        writeSoapResult(writer, action, """
+          <CurrentTransportState>$state</CurrentTransportState>
+          <CurrentTransportStatus>OK</CurrentTransportStatus>
+          <CurrentSpeed>1</CurrentSpeed>
+        """.trimIndent())
+      }
+      action == "GetVolume" -> {
+        writeSoapResult(writer, action, "<CurrentVolume>${(playbackState.volume * 100).toInt()}</CurrentVolume>")
+      }
+      action == "GetProtocolInfo" -> {
+        writeSoapResult(writer, action, "<Source>http-get:*:video/*:*</Source><Sink>http-get:*:video/*:*</Sink>")
+      }
+      else -> writeSoapResponse(writer, action)
     }
   }
 
-  private fun handleMSearch(text: String, senderAddr: InetAddress, senderPort: Int, socket: MulticastSocket) {
-    val st = Regex("(?i)ST:\\s*(.+)").find(text)?.groupValues?.get(1)?.trim() ?: return
-    Log.d(TAG, "M-SEARCH from ${senderAddr.hostAddress}:$senderPort ST=$st")
-
-    val responses = when (st) {
-      "ssdp:all" -> listOf(
-        "upnp:rootdevice",
-        "uuid:$uuid",
-        "urn:schemas-upnp-org:device:MediaRenderer:1",
-        "urn:schemas-upnp-org:service:AVTransport:1",
-        "urn:schemas-upnp-org:service:RenderingControl:1",
-        "urn:schemas-upnp-org:service:ConnectionManager:1"
-      )
-      "upnp:rootdevice" -> listOf("upnp:rootdevice")
-      "uuid:$uuid" -> listOf("uuid:$uuid")
-      "urn:schemas-upnp-org:device:MediaRenderer:1" -> listOf("urn:schemas-upnp-org:device:MediaRenderer:1")
-      "urn:schemas-upnp-org:service:AVTransport:1" -> listOf("urn:schemas-upnp-org:service:AVTransport:1")
-      "urn:schemas-upnp-org:service:RenderingControl:1" -> listOf("urn:schemas-upnp-org:service:RenderingControl:1")
-      "urn:schemas-upnp-org:service:ConnectionManager:1" -> listOf("urn:schemas-upnp-org:service:ConnectionManager:1")
-      else -> return
-    }
-
-    Thread({
-      try {
-        for ((idx, respSt) in responses.withIndex()) {
-          if (idx > 0) Thread.sleep(50)
-          val response = buildSsdpResponse(respSt)
-          // CRITICAL: unicast response directly to the searcher
-          sendSsdpMessage(socket, response, senderAddr, senderPort)
-        }
-      } catch (e: Exception) {
-        Log.e(TAG, "Failed sending M-SEARCH response", e)
-      }
-    }, "cast-ssdp-resp").apply { isDaemon = true; start() }
+  private fun writeSoapResponse(writer: java.io.OutputStream, action: String) {
+    val body = """<?xml version="1.0" encoding="utf-8"?>
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+  <s:Body><u:${action}Response xmlns:u="urn:schemas-upnp-org:service:AVTransport:1"></u:${action}Response></s:Body>
+</s:Envelope>"""
+    writeHttp(writer, "HTTP/1.1 200 OK", "text/xml; charset=\"utf-8\"", body)
   }
 
-  private fun runSsdpNotify() {
-    var socket: DatagramSocket? = null
-    try {
-      socket = DatagramSocket()
-      socket.broadcast = true
-      notifySocket = socket
-
-      val group = InetAddress.getByName(SSDP_ADDR)
-      val types = listOf(
-        "upnp:rootdevice",
-        "uuid:$uuid",
-        "urn:schemas-upnp-org:device:MediaRenderer:1",
-        "urn:schemas-upnp-org:service:AVTransport:1",
-        "urn:schemas-upnp-org:service:RenderingControl:1",
-        "urn:schemas-upnp-org:service:ConnectionManager:1"
-      )
-
-      // Send initial alive 3 times for reliability
-      for (i in 0 until 3) {
-        for (type in types) {
-          sendSsdpMessage(socket, buildSsdpNotify(type, "ssdp:alive"), group, SSDP_PORT)
-        }
-        Thread.sleep(200)
-      }
-
-      while (running.get()) {
-        Thread.sleep(NOTIFY_INTERVAL_MS)
-        if (!running.get()) break
-        for (type in types) {
-          sendSsdpMessage(socket, buildSsdpNotify(type, "ssdp:alive"), group, SSDP_PORT)
-          Thread.sleep(50)
-        }
-      }
-    } catch (e: Exception) {
-      Log.e(TAG, "SSDP notify error", e)
-    } finally {
-      try { socket?.close() } catch (_: Exception) {}
-      if (notifySocket === socket) notifySocket = null
-    }
+  private fun writeSoapResult(writer: java.io.OutputStream, action: String, result: String) {
+    val body = """<?xml version="1.0" encoding="utf-8"?>
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+  <s:Body><u:${action}Response xmlns:u="urn:schemas-upnp-org:service:AVTransport:1">$result</u:${action}Response></s:Body>
+</s:Envelope>"""
+    writeHttp(writer, "HTTP/1.1 200 OK", "text/xml; charset=\"utf-8\"", body)
   }
 
-  private fun sendByebye() {
-    try {
-      val socket = notifySocket ?: DatagramSocket()
-      socket.broadcast = true
-      val group = InetAddress.getByName(SSDP_ADDR)
-      val types = listOf(
-        "upnp:rootdevice",
-        "uuid:$uuid",
-        "urn:schemas-upnp-org:device:MediaRenderer:1",
-        "urn:schemas-upnp-org:service:AVTransport:1",
-        "urn:schemas-upnp-org:service:RenderingControl:1",
-        "urn:schemas-upnp-org:service:ConnectionManager:1"
-      )
-      for (type in types) {
-        sendSsdpMessage(socket, buildSsdpNotify(type, "ssdp:byebye"), group, SSDP_PORT)
-      }
-      if (notifySocket !== socket) socket.close()
-    } catch (_: Exception) {}
+  private fun handleSubscribe(writer: java.io.OutputStream) {
+    val resp = "HTTP/1.1 200 OK\r\n" +
+      "SID:uuid:${config.uuid}\r\n" +
+      "TIMEOUT:Second-1800\r\n\r\n"
+    writer.write(resp.toByteArray(Charsets.UTF_8))
+    writer.flush()
   }
 
-  // ---------- Notification ----------
+  private fun writeXml(writer: java.io.OutputStream, xml: String) {
+    writeHttp(writer, "HTTP/1.1 200 OK", "text/xml; charset=\"utf-8\"", xml)
+  }
 
-  private fun ensureNotificationChannel() {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-      val ctx = appContext.reactContext ?: return
-      val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-      if (nm.getNotificationChannel(CHANNEL_ID) == null) {
-        val ch = NotificationChannel(CHANNEL_ID, "投屏接收服务", NotificationManager.IMPORTANCE_LOW)
-        ch.description = "DLNA投屏接收服务运行中"
-        nm.createNotificationChannel(ch)
-      }
-    }
+  private fun writeNotFound(writer: java.io.OutputStream) {
+    writeHttp(writer, "HTTP/1.1 404 Not Found", "text/plain", "Not Found")
+  }
+
+  private fun writeHttp(writer: java.io.OutputStream, status: String, contentType: String, body: String) {
+    val data = body.toByteArray(Charsets.UTF_8)
+    val sb = StringBuilder()
+    sb.append("$status\r\n")
+    sb.append("Content-Type: $contentType\r\n")
+    sb.append("Content-Length: ${data.size}\r\n")
+    sb.append("Connection: close\r\n")
+    sb.append("Access-Control-Allow-Origin: *\r\n")
+    sb.append("\r\n")
+    writer.write(sb.toString().toByteArray(Charsets.UTF_8))
+    writer.write(data)
+    writer.flush()
+  }
+
+  private fun decodeXml(s: String): String {
+    return s.replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&amp;", "&")
+  }
+
+  private fun formatTime(ms: Int): String {
+    val totalSec = ms / 1000
+    val h = totalSec / 3600
+    val m = (totalSec % 3600) / 60
+    val sec = totalSec % 60
+    return String.format("%02d:%02d:%02d", h, m, sec)
+  }
+
+  companion object {
+    private const val SSDP_ADDR = "239.255.255.250"
+    private const val SSDP_PORT = 1900
   }
 }

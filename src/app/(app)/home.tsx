@@ -66,9 +66,14 @@ export default function HomeScreen() {
     }
   }, [currentVideo, router]);
 
-  // 二维码内容（用 deviceId 标识，发送端扫码后到 Supabase 找到此设备）
-  const qrValue = buildQrPayload(serverState.deviceId || 'loading');
+  // 二维码内容（包含 deviceId + IP + 端口，扫码端可直接直连或通过 Supabase 配对）
   const isRunning = serverState.status === 'running';
+  const qrValue = buildQrPayload(
+    serverState.deviceId || 'loading',
+    undefined,
+    isRunning ? serverState.localIp : '',
+    isRunning ? serverState.port : 0
+  );
 
   // 呼吸动画（等待连接时）
   const opacity = useSharedValue(1);

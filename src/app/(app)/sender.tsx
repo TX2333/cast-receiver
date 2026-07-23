@@ -1,15 +1,14 @@
 /**
  * 发送端页面（局域网 DLNA/UPnP 直连）
- * - 通过 SSDP 在局域网内发现可投屏设备（含本 App 接收端、以及手机视频软件可识别的 DMR）
+ * - 通过 SSDP 在局域网内发现可投屏设备
  * - 输入视频 URL 后，直接向选中设备发送 SetAVTransportURI + Play 指令
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   RefreshControl,
   ScrollView,
-  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -18,63 +17,9 @@ import {
 import { Stack, useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { usePlayer } from '@/lib/playerContext';
-import { discoverReceivers, type DiscoveredDevice } from '@/lib/castReceiver';
+import { CastReceiverApi } from '@/lib/castReceiver';
+import { castToDevice, type DeviceInfo } from '@/lib/castServer';
 import type { RelativePathString } from 'expo-router';
-
-const SOAP_NS = 'urn:schemas-upnp-org:service:AVTransport:1';
-
-function escapeXml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-function buildSetAVTransportURI(uri: string, title: string): string {
-  const meta =
-    '<?xml version="1.0" encoding="utf-8"?>' +
-    '<DIDL-Lite xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/">' +
-    '<item id="1" parentID="0" restricted="0">' +
-    '<dc:title>' + escapeXml(title || '视频') + '</dc:title>' +
-    '<upnp:class>object.item.videoItem</upnp:class>' +
-    '<res protocolInfo="http-get:*:video/mp4:*">' + escapeXml(uri) + '</res>' +
-    '</item></DIDL-Lite>';
-  return (
-    '<?xml version="1.0" encoding="utf-8"?>' +
-    '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">' +
-    '<s:Body><u:SetAVTransportURI xmlns:u="' + SOAP_NS + '">' +
-    '<InstanceID>0</InstanceID>' +
-    '<CurrentURI>' + escapeXml(uri) + '</CurrentURI>' +
-    '<CurrentURIMetaData>' + escapeXml(meta) + '</CurrentURIMetaData>' +
-    '</u:SetAVTransportURI></s:Body></s:Envelope>'
-  );
-}
-
-function buildAction(action: string): string {
-  const extra = action === 'Play' ? '<Speed>1</Speed>' : '';
-  return (
-    '<?xml version="1.0" encoding="utf-8"?>' +
-    '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">' +
-    '<s:Body><u:' + action + ' xmlns:u="' + SOAP_NS + '"><InstanceID>0</InstanceID>' + extra + '</u:' + action + '></s:Body></s:Envelope>'
-  );
-}
-
-async function postSoap(url: string, action: string, body: string): Promise<void> {
-  await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'text/xml; charset="utf-8"',
-      SOAPACTION: '"' + SOAP_NS + '#' + action + '"',
-    },
-    body,
-  });
-}
-
-function controlUrlFor(device: DiscoveredDevice): string {
-  const base = device.location.replace(/\/description\.xml$/i, '');
-  return base + '/upnp/control/AVTransport';
-}
 
 function hostOf(location: string): string {
   try {
@@ -88,9 +33,9 @@ export default function SenderScreen() {
   const router = useRouter();
   const { setSourceUrl, play } = usePlayer();
 
-  const [devices, setDevices] = useState<DiscoveredDevice[]>([]);
+  const [devices, setDevices] = useState<DeviceInfo[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selected, setSelected] = useState<DiscoveredDevice | null>(null);
+  const [selected, setSelected] = useState<DeviceInfo | null>(null);
   const [videoUrl, setVideoUrl] = useState('');
   const [videoTitle, setVideoTitle] = useState('');
   const [sendStatus, setSendStatus] = useState<string | null>(null);
@@ -100,9 +45,9 @@ export default function SenderScreen() {
     setLoading(true);
     setErrorMsg(null);
     try {
-      const list = await discoverReceivers(4000);
+      const list = await CastReceiverApi.discover(4000);
       setDevices(list);
-      setSelected((prev) => prev && list.some((d) => d.location === prev.location) ? prev : null);
+      setSelected((prev) => (prev && list.some((d) => d.location === prev.location) ? prev : null));
     } catch (e) {
       setErrorMsg('发现设备失败：' + (e instanceof Error ? e.message : String(e)));
     } finally {
@@ -113,12 +58,11 @@ export default function SenderScreen() {
   useFocusEffect(
     useCallback(() => {
       loadDevices();
-      const t = setInterval(loadDevices, 5000);
+      const t = setInterval(loadDevices, 8000);
       return () => clearInterval(t);
     }, [loadDevices])
   );
 
-  // ─── 发送到选中设备 ──────────────────────────────────────────────
   const handleSend = useCallback(async () => {
     if (!selected) {
       Alert.alert('请先选择设备');
@@ -130,9 +74,7 @@ export default function SenderScreen() {
     }
     setSendStatus('发送中...');
     try {
-      const url = controlUrlFor(selected);
-      await postSoap(url, 'SetAVTransportURI', buildSetAVTransportURI(videoUrl.trim(), videoTitle.trim()));
-      await postSoap(url, 'Play', buildAction('Play'));
+      await castToDevice(selected, { url: videoUrl.trim(), title: videoTitle.trim() || '视频', type: 'video' });
       setSendStatus('已发送');
     } catch (e) {
       setSendStatus(null);
@@ -140,25 +82,12 @@ export default function SenderScreen() {
     }
   }, [selected, videoUrl, videoTitle]);
 
-  const handleControl = useCallback(
-    async (cmd: 'Play' | 'Pause' | 'Stop') => {
-      if (!selected) return;
-      try {
-        await postSoap(controlUrlFor(selected), cmd, buildAction(cmd));
-      } catch (e) {
-        setErrorMsg('控制失败：' + (e instanceof Error ? e.message : String(e)));
-      }
-    },
-    [selected]
-  );
-
-  // ─── 本机演示（直接在当前设备播放）────────────────────────────────
   const handleLocalPlay = useCallback(() => {
     if (!videoUrl.trim()) {
       Alert.alert('请输入视频地址');
       return;
     }
-    setSourceUrl(videoUrl.trim(), videoTitle.trim());
+    setSourceUrl(videoUrl.trim(), videoTitle.trim() || '视频');
     play();
     setSendStatus('已在本机播放');
   }, [videoUrl, videoTitle, setSourceUrl, play]);
@@ -192,18 +121,20 @@ export default function SenderScreen() {
         ) : (
           devices.map((d) => (
             <TouchableOpacity
-              key={d.location}
+              key={d.id}
               onPress={() => setSelected(d)}
               className={
                 'flex-row items-center justify-between rounded-lg border p-4 ' +
-                (selected?.location === d.location ? 'border-cyan-400 bg-cyan-400/10' : 'border-border')
+                (selected?.id === d.id ? 'border-cyan-400 bg-cyan-400/10' : 'border-border')
               }
             >
               <View className="flex-1 mr-3">
-                <Text className="text-foreground font-semibold">{d.friendlyName || '投屏设备'}</Text>
-                <Text className="text-muted-foreground text-xs mt-1">{hostOf(d.location)}</Text>
+                <Text className="text-foreground font-semibold">{d.name || '投屏设备'}</Text>
+                {d.location ? (
+                  <Text className="text-muted-foreground text-xs mt-1">{hostOf(d.location)}</Text>
+                ) : null}
               </View>
-              {selected?.location === d.location && (
+              {selected?.id === d.id && (
                 <View className="w-6 h-6 rounded-full bg-cyan-400 items-center justify-center">
                   <Text className="text-black text-xs">✓</Text>
                 </View>
@@ -254,20 +185,6 @@ export default function SenderScreen() {
         >
           <Text className="text-foreground font-bold">本机演示播放</Text>
         </TouchableOpacity>
-
-        {selected && (
-          <View className="flex-row gap-3 justify-center">
-            <TouchableOpacity onPress={() => handleControl('Play')} className="px-5 py-2 rounded-lg border border-border">
-              <Text className="text-foreground">继续</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleControl('Pause')} className="px-5 py-2 rounded-lg border border-border">
-              <Text className="text-foreground">暂停</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleControl('Stop')} className="px-5 py-2 rounded-lg border border-border">
-              <Text className="text-foreground">停止</Text>
-            </TouchableOpacity>
-          </View>
-        )}
 
         {sendStatus && <Text className="text-cyan-400 text-center text-sm">{sendStatus}</Text>}
       </View>
