@@ -20,6 +20,7 @@
       "versionCode": 1,
       "package": "com.miaoda.appd2y8vp5n1s75",
       "permissions": [
+        "INTERNET",
         "ACCESS_WIFI_STATE",
         "CHANGE_WIFI_MULTICAST_STATE",
         "ACCESS_NETWORK_STATE"

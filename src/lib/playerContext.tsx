@@ -37,6 +37,9 @@ interface PlayerContextValue extends PlayerState {
   loadSubtitleText: (text: string) => void;
   // 演示：手动投屏（测试用）
   demoPlay: (url: string, title: string) => void;
+  // 发送端：设置视频源并播放
+  setSourceUrl: (url: string, title: string) => void;
+  play: () => void;
 }
 
 const PlayerContext = createContext<PlayerContextValue | null>(null);
@@ -163,6 +166,20 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     castServer.injectMessage(msg);
   }, []);
 
+  // ─── 发送端：设置视频源 ────────────────────────────────────────────────────
+  const setSourceUrl = useCallback((url: string, title: string) => {
+    const video: VideoItem = { id: Date.now().toString(), url, title };
+    setPlaylist([video]);
+    setCurrentIndex(0);
+    setSubtitleCues([]);
+    setActiveCueText('');
+  }, []);
+
+  // ─── 发送端：触发播放 ──────────────────────────────────────────────────────
+  const play = useCallback(() => {
+    setIsPlayingState(true);
+  }, []);
+
   const value: PlayerContextValue = {
     playlist,
     currentIndex,
@@ -184,6 +201,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     setVolume,
     loadSubtitleText,
     demoPlay,
+    setSourceUrl,
+    play,
   };
 
   // ─── 启动 DLNA/UPnP 接收端，使局域网设备/手机视频软件可发现并投屏 ───

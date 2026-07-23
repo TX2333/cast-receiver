@@ -1,8 +1,16 @@
 {
-  "extends": "expo-module-scripts/tsconfig.base",
   "compilerOptions": {
     "strict": true,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true
   },
   "include": ["src"],
   "exclude": ["android", "ios", "**/*.android.ts", "**/*.ios.ts"]

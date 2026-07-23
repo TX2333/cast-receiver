@@ -1,4 +1,4 @@
-import { requireNativeModule, EventEmitter, type EventSubscription } from 'expo';
+import { requireNativeModule, EventEmitter } from 'expo';
 
 type NativeModule = {
   start: (config: DlnaConfig) => void;
@@ -34,7 +34,7 @@ try {
   nativeModule = null;
 }
 
-const emitter = nativeModule ? new EventEmitter(nativeModule as any) : null;
+const emitter: any = nativeModule ? new EventEmitter(nativeModule as any) : null;
 
 export function startReceiver(cfg: DlnaConfig): void {
   if (!nativeModule) return;
@@ -72,10 +72,15 @@ export async function discoverReceivers(timeoutMs = 4000): Promise<DiscoveredDev
   }
 }
 
+export interface CastSubscription {
+  remove: () => void;
+}
+
 export function addCastListener(
   event: string,
   listener: (...args: any[]) => void
-): EventSubscription | null {
+): CastSubscription | null {
   if (!emitter) return null;
-  return emitter.addListener(event, listener);
+  const sub = emitter.addListener(event as any, listener);
+  return { remove: () => sub.remove() };
 }
