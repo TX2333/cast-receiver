@@ -1,10 +1,37 @@
-const { withAppBuildGradle } = require('@expo/config-plugins');
+const { withAppBuildGradle, withAndroidManifest } = require('@expo/config-plugins');
+
+// 让主 Activity 根据传感器在四个方向自由旋转（问题1：无法自由旋转屏幕）
+function withAndroidFullSensor(config) {
+  return withAndroidManifest(config, (cfg) => {
+    const doc = cfg.modResults.manifest;
+    const manifest = doc?.manifest ?? doc;
+    const activities = manifest?.application?.[0]?.activity ?? [];
+    for (const act of activities) {
+      const name = act.$?.['android:name'] || '';
+      const filters = act['intent-filter'] ?? [];
+      const isLauncher = filters.some((f) => {
+        const actions = f.action ?? [];
+        const cats = f.category ?? [];
+        return (
+          actions.some((a) => a.$?.['android:name'] === 'android.intent.action.MAIN') &&
+          cats.some((c) => c.$?.['android:name'] === 'android.intent.category.LAUNCHER')
+        );
+      });
+      if (isLauncher || name.includes('MainActivity')) {
+        act.$ = act.$ || {};
+        act.$['android:screenOrientation'] = 'fullSensor';
+      }
+    }
+    return cfg;
+  });
+}
 
 /**
  * 确保 release 构建使用 debug keystore 签名，使 `assembleRelease` 产出可安装的 APK，
  * 无需自定义 keystore。若已配置正式签名（如 Codemagic 的 android_signing），则保持不变。
  */
 module.exports = function withAndroidReleaseSigning(config) {
+  config = withAndroidFullSensor(config);
   return withAppBuildGradle(config, (cfg) => {
     const contents = cfg.modResults.contents;
     const marker = 'release {';

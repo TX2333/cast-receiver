@@ -10,8 +10,10 @@ import java.io.InputStream
 import java.io.InputStreamReader
 import java.net.DatagramPacket
 import java.net.DatagramSocket
+import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.MulticastSocket
+import java.net.NetworkInterface
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.SocketException
@@ -93,7 +95,9 @@ class CastReceiverModule : Module() {
     // ------------------------------------------------------------------
     private fun startInternal(port: Int, ip: String, name: String, uuid: String) {
         if (running) stopInternal()
-        localIp = ip
+        // 优先使用 JS 传入的 IP，但 Android 上 expo-network 常返回 0.0.0.0 / 127.0.0.1 / IPv6，
+        // 这类地址会让 LOCATION 不可达。故无效时改由原生枚举网卡挑选可用 IPv4。
+        localIp = resolveLocalIp(ip)
         friendlyName = name
         udn = if (uuid.startsWith("uuid:")) uuid else "uuid:$uuid"
         running = true
@@ -139,14 +143,21 @@ class CastReceiverModule : Module() {
     // ------------------------------------------------------------------
     private fun runSsdp() {
         try {
-            // Android 普通应用无法绑定 1024 以下端口(如 1900)，故用临时端口加入组播组接收 M-SEARCH，
-            // 回包通过单播发往请求方源端口即可被发现。
-            val socket = MulticastSocket(0)
+            // 必须绑定 1900 端口才能收到发往 239.255.255.250:1900 的 M-SEARCH，
+            // 这是设备被发现的前提；个别系统禁止普通应用绑定特权端口时才退化为临时端口（仅能靠 NOTIFY 被发现）。
+            val socket = createSsdpSocket()
             socket.reuseAddress = true
             try {
                 socket.joinGroup(InetAddress.getByName("239.255.255.250"))
             } catch (e: Exception) { /* ignore */ }
             ssdpSocket = socket
+
+            // 加入组播后立即多播几次 NOTIFY（alive），缩短控制点发现本设备的时间
+            repeat(3) {
+                try { sendNotify() } catch (e: Exception) { /* ignore */ }
+                try { Thread.sleep(300) } catch (e: Exception) { /* ignore */ }
+            }
+
             val buf = ByteArray(4096)
             while (running) {
                 try {
@@ -155,7 +166,9 @@ class CastReceiverModule : Module() {
                     if (!running) break
                     val msg = String(packet.data, 0, packet.length, StandardCharsets.UTF_8)
                     if (msg.startsWith("M-SEARCH", ignoreCase = true)) {
-                        val response = buildSsdpResponse().toByteArray(StandardCharsets.UTF_8)
+                        val st = findHeader(msg, "ST")
+                            ?: "urn:schemas-upnp-org:device:MediaRenderer:1"
+                        val response = buildSsdpResponse(st).toByteArray(StandardCharsets.UTF_8)
                         val out = DatagramPacket(
                             response,
                             response.size,
@@ -175,16 +188,69 @@ class CastReceiverModule : Module() {
         }
     }
 
-    private fun buildSsdpResponse(): String {
+    private fun createSsdpSocket(): MulticastSocket {
+        return try {
+            val s = MulticastSocket(1900)
+            s.reuseAddress = true
+            s
+        } catch (e: Exception) {
+            // 退化：无法绑定 1900 时仍可用临时端口发送 NOTIFY 公告
+            val s = MulticastSocket(0)
+            s.reuseAddress = true
+            s
+        }
+    }
+
+    private fun buildSsdpResponse(st: String): String {
         val location = "http://$localIp:$controlPort/description.xml"
+        val usn = if (st.equals("ssdp:all", ignoreCase = true)) udn else "$udn::$st"
         return "HTTP/1.1 200 OK\r\n" +
             "CACHE-CONTROL: max-age=1800\r\n" +
             "EXT:\r\n" +
             "LOCATION: $location\r\n" +
             "SERVER: Linux/3.14 UPnP/1.0 miaodaCast/1.0\r\n" +
-            "ST: urn:schemas-upnp-org:device:MediaRenderer:1\r\n" +
-            "USN: $udn::urn:schemas-upnp-org:device:MediaRenderer:1\r\n" +
+            "ST: $st\r\n" +
+            "USN: $usn\r\n" +
             "CONTENT-LENGTH: 0\r\n\r\n"
+    }
+
+    // 选择 LOCATION 使用的本机 IPv4：优先 JS 传入的可用地址，否则枚举网卡挑选
+    private fun resolveLocalIp(requested: String): String {
+        if (isUsableLanIp(requested)) return requested
+        val native = pickLocalIp()
+        if (isUsableLanIp(native)) return native
+        return if (isUsableLanIp(requested)) requested else "127.0.0.1"
+    }
+
+    private fun isUsableLanIp(ip: String?): Boolean {
+        if (ip.isNullOrBlank()) return false
+        if (ip == "0.0.0.0" || ip.startsWith("127.")) return false
+        if (ip.contains(':')) return false // 排除 IPv6
+        val parts = ip.split('.')
+        if (parts.size != 4) return false
+        return parts.all { p -> p.toIntOrNull()?.let { it in 0..255 } ?: false }
+    }
+
+    private fun pickLocalIp(): String {
+        try {
+            val interfaces = NetworkInterface.getNetworkInterfaces()
+            while (interfaces != null && interfaces.hasMoreElements()) {
+                val nif = interfaces.nextElement()
+                if (nif.isLoopback || !nif.isUp) continue
+                val name = nif.name ?: ""
+                // 跳过 VPN / 虚拟网卡
+                if (name.startsWith("tun") || name.startsWith("dummy") || name.startsWith("virbr")) continue
+                val adds = nif.inetAddresses
+                while (adds.hasMoreElements()) {
+                    val addr = adds.nextElement()
+                    if (addr is Inet4Address && !addr.isLoopbackAddress) {
+                        val h = addr.hostAddress
+                        if (h != null && h != "0.0.0.0") return h
+                    }
+                }
+            }
+        } catch (e: Exception) { /* ignore */ }
+        return "127.0.0.1"
     }
 
     private fun sendNotify() {
@@ -455,6 +521,22 @@ class CastReceiverModule : Module() {
                 break
             }
         }
+        // 把本机正在运行的接收端也加入结果：绕过 Android 组播回环限制，
+        // 使“发送到设备”在同设备上也能发现自身（便于自投/测试）。
+        if (running && isUsableLanIp(localIp)) {
+            val localLoc = "http://$localIp:$controlPort/description.xml"
+            if (!seen.contains(localLoc)) {
+                seen.add(localLoc)
+                found.add(
+                    mapOf(
+                        "location" to localLoc,
+                        "friendlyName" to friendlyName,
+                        "udn" to udn
+                    )
+                )
+            }
+        }
+
         socket.close()
         return found
     }
