@@ -270,7 +270,7 @@ class CastReceiverModule : Module() {
         val client: Socket = try {
           serverSocket?.accept() ?: break
         } catch (_: Exception) { break }
-        Thread({ handleHttpClient(client) }, "cast-http-client-${System.nanos()}").apply { isDaemon = true; start() }
+        Thread({ handleHttpClient(client) }, "cast-http-client-${System.nanoTime()}").apply { isDaemon = true; start() }
       }
     } catch (e: Exception) {
       Log.e(TAG, "HTTP server error", e)
