@@ -21,29 +21,21 @@ workflows:
       - name: Install dependencies
         script: |
           pnpm install --frozen-lockfile=false
-      - name: Setup Expo and EAS
-        script: |
-          npm install -g eas-cli@latest
-      - name: Setup keystore
-        script: |
-          echo "$CM_KEYSTORE" | base64 --decode > android/app/keystore.jks
-          cat >> android/gradle.properties <<EOF
-          MYAPP_UPLOAD_STORE_FILE=keystore.jks
-          MYAPP_UPLOAD_KEY_ALIAS=$CM_KEY_ALIAS
-          MYAPP_UPLOAD_STORE_PASSWORD=$CM_KEYSTORE_PASSWORD
-          MYAPP_UPLOAD_KEY_PASSWORD=$CM_KEY_PASSWORD
-          EOF
       - name: Prebuild Android
         script: |
           npx expo prebuild --platform android --clean
+      - name: Setup keystore
+        script: |
+          echo "$CM_KEYSTORE" | base64 --decode > android/app/keystore.jks
+          printf 'MYAPP_UPLOAD_STORE_FILE=keystore.jks\nMYAPP_UPLOAD_KEY_ALIAS=%s\nMYAPP_UPLOAD_STORE_PASSWORD=%s\nMYAPP_UPLOAD_KEY_PASSWORD=%s\n' "$CM_KEY_ALIAS" "$CM_KEYSTORE_PASSWORD" "$CM_KEY_PASSWORD" >> android/gradle.properties
       - name: Build release APK
         script: |
           cd android
           ./gradlew assembleRelease \
             -PMYAPP_UPLOAD_STORE_FILE=keystore.jks \
-            -PMYAPP_UPLOAD_KEY_ALIAS=$CM_KEY_ALIAS \
-            -PMYAPP_UPLOAD_STORE_PASSWORD=$CM_KEYSTORE_PASSWORD \
-            -PMYAPP_UPLOAD_KEY_PASSWORD=$CM_KEY_PASSWORD
+            -PMYAPP_UPLOAD_KEY_ALIAS="$CM_KEY_ALIAS" \
+            -PMYAPP_UPLOAD_STORE_PASSWORD="$CM_KEYSTORE_PASSWORD" \
+            -PMYAPP_UPLOAD_KEY_PASSWORD="$CM_KEY_PASSWORD"
       - name: Copy APK to artifacts
         script: |
           mkdir -p build/outputs
