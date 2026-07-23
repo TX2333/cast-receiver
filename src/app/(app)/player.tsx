@@ -286,7 +286,9 @@ export default function PlayerScreen() {
             onPress={() => {
               hasInteracted.current = true;
               setShowOverlay(false);
-              player.replaceAsync({ uri: currentVideo.url }).then(() => player.play());
+              player.replaceAsync({ uri: currentVideo.url })
+                .then(() => player.play())
+                .catch(() => {});
               setPlaying(true);
             }}
           >

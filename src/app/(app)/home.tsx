@@ -54,7 +54,7 @@ export default function HomeScreen() {
   // 服务器启动
   useFocusEffect(
     useCallback(() => {
-      startServer();
+      startServer().catch((e) => console.warn('[home] startServer failed:', e));
     }, [startServer])
   );
 

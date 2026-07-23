@@ -134,21 +134,30 @@ class CastServer {
   async start(): Promise<void> {
     if (this.status === 'running') return;
     this.status = 'starting';
-    this.localIp = await getLocalIp();
-
-    // 生成/恢复设备 ID（每次启动固定，不持久化以防 Web 串号）
-    this.deviceId = await Crypto.digestStringAsync(
-      Crypto.CryptoDigestAlgorithm.SHA256,
-      `screencast-${this.localIp}-${this.port}`
-    );
-    this.deviceId = this.deviceId.slice(0, 16); // 取前 16 字符
-
     this.emit();
 
-    if (process.env.EXPO_OS === 'web') {
-      this.startWebMode();
-    } else {
-      await this.startNativeMode();
+    try {
+      this.localIp = await getLocalIp();
+
+      // 生成/恢复设备 ID（每次启动固定，不持久化以防 Web 串号）
+      this.deviceId = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        `screencast-${this.localIp}-${this.port}`
+      );
+      this.deviceId = this.deviceId.slice(0, 16); // 取前 16 字符
+
+      this.emit();
+
+      if (process.env.EXPO_OS === 'web') {
+        this.startWebMode();
+      } else {
+        await this.startNativeMode();
+      }
+    } catch (e) {
+      console.warn('[castServer] start failed:', e);
+      // 即使 Supabase/网络失败，也标记为 running 让 UI 不卡死
+      this.status = 'running';
+      this.emit();
     }
   }
 
@@ -165,63 +174,75 @@ class CastServer {
 
   // ─── 原生模式（Supabase 心跳 + 轮询）───────────────────────────────────
   private async startNativeMode() {
-    // 首次上线
-    await this.upsertSession();
+    // 首次上线（失败不影响服务器运行）
+    try {
+      await this.upsertSession();
+    } catch (e) {
+      console.warn('[castServer] initial upsertSession failed:', e);
+    }
     this.status = 'running';
     this.emit();
 
     // 心跳：定期刷新 last_seen
     this.heartbeatTimer = setInterval(() => {
-      this.upsertSession();
+      this.upsertSession().catch((e) => console.warn('[castServer] heartbeat failed:', e));
     }, HEARTBEAT_INTERVAL);
 
     // 指令轮询
     this.pollTimer = setInterval(() => {
-      this.pollCommands();
+      this.pollCommands().catch((e) => console.warn('[castServer] pollCommands failed:', e));
     }, POLL_INTERVAL);
   }
 
   // ─── Upsert 在线会话 ──────────────────────────────────────────────────
   private async upsertSession() {
-    await supabase.from('cast_sessions').upsert(
-      {
-        device_id: this.deviceId,
-        device_name: this.deviceName,
-        ip: this.localIp,
-        port: this.port,
-        last_seen: new Date().toISOString(),
-      },
-      { onConflict: 'device_id' }
-    );
+    try {
+      await supabase.from('cast_sessions').upsert(
+        {
+          device_id: this.deviceId,
+          device_name: this.deviceName,
+          ip: this.localIp,
+          port: this.port,
+          last_seen: new Date().toISOString(),
+        },
+        { onConflict: 'device_id' }
+      );
+    } catch (e) {
+      console.warn('[castServer] upsertSession failed:', e);
+    }
   }
 
   // ─── 轮询指令 ─────────────────────────────────────────────────────────
   private async pollCommands() {
-    const { data } = await supabase
-      .from('cast_commands')
-      .select('id, type, payload')
-      .eq('device_id', this.deviceId)
-      .gt('id', this.lastCommandId)
-      .order('id', { ascending: true })
-      .limit(20);
+    try {
+      const { data } = await supabase
+        .from('cast_commands')
+        .select('id, type, payload')
+        .eq('device_id', this.deviceId)
+        .gt('id', this.lastCommandId)
+        .order('id', { ascending: true })
+        .limit(20);
 
-    if (!data || data.length === 0) return;
+      if (!data || data.length === 0) return;
 
-    // 记录最新 id，防止重复处理
-    this.lastCommandId = data[data.length - 1].id;
+      // 记录最新 id，防止重复处理
+      this.lastCommandId = data[data.length - 1].id;
 
-    // 删除已处理指令（保持表干净）
-    const ids = data.map((r) => r.id);
-    await supabase.from('cast_commands').delete().in('id', ids);
+      // 删除已处理指令（保持表干净）
+      const ids = data.map((r) => r.id);
+      await supabase.from('cast_commands').delete().in('id', ids);
 
-    // 处理指令
-    for (const row of data) {
-      const msg: CastMessage = {
-        type: row.type as CastMessageType,
-        payload: row.payload,
-        timestamp: Date.now(),
-      };
-      this.handleMessage(msg);
+      // 处理指令
+      for (const row of data) {
+        const msg: CastMessage = {
+          type: row.type as CastMessageType,
+          payload: row.payload,
+          timestamp: Date.now(),
+        };
+        this.handleMessage(msg);
+      }
+    } catch (e) {
+      console.warn('[castServer] pollCommands failed:', e);
     }
   }
 
@@ -234,12 +255,16 @@ class CastServer {
 
     // 从数据库删除在线记录（带超时保护，避免网络慢时卡住 App 退出）
     if (this.deviceId) {
-      const deletePromise = supabase
-        .from('cast_sessions')
-        .delete()
-        .eq('device_id', this.deviceId);
-      const timeoutPromise = new Promise<void>((resolve) => setTimeout(resolve, 3000));
-      await Promise.race([deletePromise, timeoutPromise]);
+      try {
+        const deletePromise = supabase
+          .from('cast_sessions')
+          .delete()
+          .eq('device_id', this.deviceId);
+        const timeoutPromise = new Promise<void>((resolve) => setTimeout(resolve, 3000));
+        await Promise.race([deletePromise, timeoutPromise]);
+      } catch (e) {
+        console.warn('[castServer] deleteSession failed:', e);
+      }
     }
 
     this.status = 'stopped';
@@ -278,21 +303,26 @@ export interface OnlineDevice {
 }
 
 export async function fetchOnlineDevices(): Promise<OnlineDevice[]> {
-  const since = new Date(Date.now() - SESSION_EXPIRE_SEC * 1000).toISOString();
-  const { data } = await supabase
-    .from('cast_sessions')
-    .select('device_id, device_name, ip, port, last_seen')
-    .gte('last_seen', since)
-    .order('last_seen', { ascending: false })
-    .limit(50);
+  try {
+    const since = new Date(Date.now() - SESSION_EXPIRE_SEC * 1000).toISOString();
+    const { data } = await supabase
+      .from('cast_sessions')
+      .select('device_id, device_name, ip, port, last_seen')
+      .gte('last_seen', since)
+      .order('last_seen', { ascending: false })
+      .limit(50);
 
-  return (data ?? []).map((r) => ({
-    deviceId: r.device_id,
-    deviceName: r.device_name,
-    ip: r.ip,
-    port: r.port,
-    lastSeen: r.last_seen,
-  }));
+    return (data ?? []).map((r) => ({
+      deviceId: r.device_id,
+      deviceName: r.device_name,
+      ip: r.ip,
+      port: r.port,
+      lastSeen: r.last_seen,
+    }));
+  } catch (e) {
+    console.warn('[castServer] fetchOnlineDevices failed:', e);
+    return [];
+  }
 }
 
 // ─── 发送投屏指令（发送端调用）───────────────────────────────────────────────
@@ -301,10 +331,14 @@ export async function sendCastCommand(
   type: CastMessageType,
   payload?: CastMessage['payload']
 ): Promise<void> {
-  await supabase.from('cast_commands').insert({
-    device_id: deviceId,
-    type,
-    payload: payload ?? null,
-  });
+  try {
+    await supabase.from('cast_commands').insert({
+      device_id: deviceId,
+      type,
+      payload: payload ?? null,
+    });
+  } catch (e) {
+    console.warn('[castServer] sendCastCommand failed:', e);
+  }
 }
 

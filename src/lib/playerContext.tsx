@@ -124,13 +124,21 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   // ─── 启动服务器 ────────────────────────────────────────────────────────────
   const startServer = useCallback(async () => {
-    castServer.setOnMessage(handleMessage);
-    castServer.setOnStatus(setServerState);
-    await castServer.start();
+    try {
+      castServer.setOnMessage(handleMessage);
+      castServer.setOnStatus(setServerState);
+      await castServer.start();
+    } catch (e) {
+      console.warn('[playerContext] startServer failed:', e);
+    }
   }, [handleMessage]);
 
   const stopServer = useCallback(async () => {
-    await castServer.stop();
+    try {
+      await castServer.stop();
+    } catch (e) {
+      console.warn('[playerContext] stopServer failed:', e);
+    }
   }, []);
 
   // ─── 播放列表控制 ──────────────────────────────────────────────────────────
@@ -271,20 +279,28 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
     const poll = setInterval(() => {
       if (stopped) return;
-      const s = dlnaRef.current;
-      CastReceiver.updateReceiverState({
-        positionMs: Math.round(s.position * 1000),
-        durationMs: 0,
-        isPlaying: s.isPlaying,
-        volume: Math.round(s.volume * 100),
-      });
+      try {
+        const s = dlnaRef.current;
+        CastReceiver.updateReceiverState({
+          positionMs: Math.round(s.position * 1000),
+          durationMs: 0,
+          isPlaying: s.isPlaying,
+          volume: Math.round(s.volume * 100),
+        });
+      } catch (e) {
+        console.warn('[playerContext] updateReceiverState failed:', e);
+      }
     }, 1000);
 
     return () => {
       stopped = true;
       clearInterval(poll);
-      subs.forEach((s) => s?.remove());
-      CastReceiver.stopReceiver();
+      try {
+        subs.forEach((s) => s?.remove());
+        CastReceiver.stopReceiver();
+      } catch (e) {
+        console.warn('[playerContext] stopReceiver failed:', e);
+      }
     };
   }, []);
 
