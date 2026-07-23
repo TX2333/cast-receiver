@@ -34,6 +34,7 @@ export type VideoItem = {
   title: string;
   type?: 'video' | 'audio' | 'image';
   subtitleUrl?: string;
+  duration?: number;
 };
 
 export type SubtitleData = {
