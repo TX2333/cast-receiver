@@ -112,7 +112,7 @@ export default function PlayerScreen() {
   const [loadingVideo, setLoadingVideo] = useState(false);
   const positionTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const player = useVideoPlayer(null, (p) => {
+  const player = useVideoPlayer({ uri: '' }, (p) => {
     p.loop = false;
   });
 
@@ -129,53 +129,72 @@ export default function PlayerScreen() {
           setPlaying(true);
         }
       } catch {
+        // 视频加载失败
+      } finally {
         setLoadingVideo(false);
       }
-      setLoadingVideo(false);
     })();
   }, [currentVideo?.url]);
 
-  // 同步 isPlaying 状态（补全 player 依赖，防止 stale closure）
+  // 同步 isPlaying 状态
   useEffect(() => {
-    if (isPlaying) {
-      player.play();
-    } else {
-      player.pause();
+    try {
+      if (isPlaying) {
+        player.play();
+      } else {
+        player.pause();
+      }
+    } catch {
+      // 播放器未就绪时忽略
     }
   }, [isPlaying, player]);
 
   // 同步音量（来自 DLNA 遥控）
   useEffect(() => {
-    player.volume = volume;
+    try {
+      player.volume = volume;
+    } catch {
+      // 忽略
+    }
   }, [volume, player]);
 
   // 轮询播放进度并更新字幕
   useEffect(() => {
     positionTimer.current = setInterval(() => {
-      const pos = player.currentTime ?? 0;
-      setPosition(pos);
-      if (subtitleCues.length > 0) {
-        const cue = findActiveCue(subtitleCues, pos);
-        setActiveCue(cue?.text ?? '');
+      try {
+        const pos = player.currentTime ?? 0;
+        setPosition(pos);
+        if (subtitleCues.length > 0) {
+          const cue = findActiveCue(subtitleCues, pos);
+          setActiveCue(cue?.text ?? '');
+        }
+        const dur = player.duration ?? 0;
+        if (dur > 0) setDuration(dur);
+      } catch {
+        // 播放器未就绪时忽略
       }
-      const dur = player.duration ?? 0;
-      if (dur > 0) setDuration(dur);
     }, 300);
     return () => {
       if (positionTimer.current) clearInterval(positionTimer.current);
     };
   }, [player, subtitleCues, setPosition, setActiveCue]);
 
-  // 播放结束时自动下一曲（补全 player/setPlaying 依赖）
+  // 播放结束时自动下一曲
   useEffect(() => {
-    const sub = player.addListener('playToEnd', () => {
-      if (currentIndex < playlist.length - 1) {
-        playNext();
-      } else {
-        setPlaying(false);
-      }
-    });
-    return () => sub.remove();
+    try {
+      const sub = player.addListener('playToEnd', () => {
+        if (currentIndex < playlist.length - 1) {
+          playNext();
+        } else {
+          setPlaying(false);
+        }
+      });
+      return () => {
+        try { sub.remove(); } catch { /* ignore */ }
+      };
+    } catch {
+      return () => {};
+    }
   }, [player, currentIndex, playlist.length, playNext, setPlaying]);
 
   // 初始化时展示控制栏
@@ -362,7 +381,7 @@ export default function PlayerScreen() {
             position={position}
             duration={duration}
             onSeek={(t) => {
-              player.seekBy(t - position);
+              try { player.currentTime = t; } catch { /* ignore */ }
               setPosition(t);
               showControls();
             }}

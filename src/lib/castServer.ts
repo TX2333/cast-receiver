@@ -64,7 +64,11 @@ const HEARTBEAT_INTERVAL = 8000;   // 每 8s 刷新 last_seen
 const POLL_INTERVAL = 1500;        // 每 1.5s 拉取新指令
 const SESSION_EXPIRE_SEC = 20;     // 超过 20s 未心跳视为离线
 
-// ─── 获取本机局域网 IP ────────────────────────────────────────────────────────
+// ─── 获取本机局域网 IP（IPv4） ────────────────────────────────────────────────
+function isIPv4(ip: string): boolean {
+  return /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(ip);
+}
+
 export async function getLocalIp(): Promise<string> {
   try {
     const state = await Network.getNetworkStateAsync();
@@ -73,11 +77,12 @@ export async function getLocalIp(): Promise<string> {
         state.type === Network.NetworkStateType.CELLULAR ||
         state.type === Network.NetworkStateType.OTHER) {
       const ip = await Network.getIpAddressAsync();
-      if (ip && ip !== '0.0.0.0' && ip !== '127.0.0.1') return ip;
+      if (ip && isIPv4(ip) && ip !== '0.0.0.0' && ip !== '127.0.0.1') return ip;
     }
     // 回退：直接取 IP
     const ip = await Network.getIpAddressAsync();
-    return ip ?? '192.168.x.x';
+    if (ip && isIPv4(ip)) return ip;
+    return '192.168.x.x';
   } catch {
     return '192.168.x.x';
   }

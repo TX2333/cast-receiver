@@ -39,7 +39,8 @@
       "expo-video",
       "expo-document-picker",
       "expo-file-system",
-      "./plugins/withAndroidReleaseSigning"
+      "./plugins/withAndroidReleaseSigning",
+      "./plugins/withAndroidNetworkSecurity"
     ],
     "router": {
       "root": "src"
